@@ -6,6 +6,8 @@
 
 namespace idyntree_yarp_tools {
 
+std::function<void ()> customHandlerLambda;
+
 void my_handler(int sig)
 {
     static int ct = 0;
@@ -26,7 +28,7 @@ void my_handler(int sig)
     }
     std::cout << "[try " << ct << " of 3] Trying to shut down." << std::endl;
 
-    isClosing = true;
+    customHandlerLambda();
 }
 
 #ifdef WIN32
@@ -50,7 +52,7 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
 }
 #endif
 
-void handleSigInt()
+void handleSignals(std::function<void ()> customHandler)
 {
 #ifdef WIN32
     SetConsoleCtrlHandler(CtrlHandler, TRUE);
@@ -62,6 +64,12 @@ void handleSigInt()
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGABRT, &action, NULL);
 #endif
+    customHandlerLambda = customHandler;
+}
+
+void handleSignals()
+{
+    handleSignals(std::function<void()>());
 }
 
 }

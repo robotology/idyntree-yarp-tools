@@ -1,13 +1,14 @@
 #ifndef IDYNTREE_YARP_UTILITIES_H
 #define IDYNTREE_YARP_UTILITIES_H
 
-#include <atomic>
+#include <functional>
 
 namespace idyntree_yarp_tools {
 
-std::atomic<bool> isClosing{false};
+void handleSignals(std::function<void()> customHandler);
 
-void handleSigInt();
+void handleSignals();
+
 
 }
 
