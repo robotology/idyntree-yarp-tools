@@ -62,6 +62,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(YCM REQUIRED)
 find_package(YARP 3.3)
 find_package(iDynTree 3.0)
+find_package(Eigen3)
 
 
 ### Options
