@@ -16,10 +16,12 @@
 #include <atomic>
 #include <Utilities.h>
 #include <mutex>
+#include <thrifts/VisualizerCommands.h>
+
 
 namespace idyntree_yarp_tools {
 
-class Visualizer
+class Visualizer : public VisualizerCommands
 {
     std::vector<std::string> jointList =
     {"neck_pitch", "neck_roll", "neck_yaw",
@@ -65,6 +67,8 @@ class Visualizer
 
     std::atomic<bool> m_isClosing{false};
 
+    yarp::os::Port m_rpcPort;
+
     std::mutex m_mutex;
 
 public:
@@ -72,9 +76,33 @@ public:
 
     int run();
 
+    bool update();
+
     void close();
 
     void closeSignalHandler();
+
+    /**
+     * Set the base position.
+     * The values are expected in meters.
+     * @return true/false in case of success/failure;
+     */
+    virtual bool setBasePosition(const double x, const double y, const double z) override;
+
+    /**
+     * Set the base rotation.
+     * The values are expected in degrees.
+     * @return true/false in case of success/failure;
+     */
+    virtual bool setBaseRotation(const double roll, const double pitch, const double yaw) override;
+
+    /**
+     * Set the base pose.
+     * The x, y, and z values are expected in meters
+     * The roll, pitch, and yaw avalues are expected in degrees.
+     * @return true/false in case of success/failure;
+     */
+    virtual bool setBasePose(const double x, const double y, const double z, const double roll, const double pitch, const double yaw) override;
 };
 
 } //namespace idyntree_yarp_tools
