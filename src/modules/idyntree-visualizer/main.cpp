@@ -42,6 +42,7 @@ int main()
     std::string robotPrefix = "icubSim";
 
     bool connectToRobot = false;
+    bool useNetwork = true;
 
     iDynTree::ModelLoader modelLoader;
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName("model.urdf");
@@ -63,9 +64,16 @@ int main()
 
     double sqrt2 = std::sqrt(2.0);
     viz.enviroment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
+    viz.enviroment().addLight("secondSun");
+    viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+    viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+
     //    viz.enviroment().setFloorGridColor(iDynTree::ColorViz(0.0, 1.0, 0.0, 1.0));
 
     textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    textureInterface->environment().addLight("secondSun");
+    textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+    textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
     textureInterface->environment().setElementVisibility("floor_grid", false);
     textureInterface->environment().setElementVisibility("world_frame", false);
     textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 0.0));
@@ -79,18 +87,20 @@ int main()
 
     // initialise yarp network
     yarp::os::Network yarp;
-    if (!yarp.checkNetwork())
+    if (useNetwork && !yarp.checkNetwork())
     {
-        yError()<<"[main] Unable to find YARP network";
-        return EXIT_FAILURE;
+        yWarning()<<"No YARP network found. Avoiding to use the network.";
+        useNetwork = false;
     }
 
     yarp::os::BufferedPort<yarp::sig::FlexImage> imagePort;
-    imagePort.open("/visualizerImage");
-
+    if (useNetwork)
+    {
+        imagePort.open("/visualizerImage");
+    }
     yarp::dev::PolyDriver robotDevice;
     yarp::dev::IEncodersTimed *encodersInterface{nullptr};
-    if (connectToRobot)
+    if (useNetwork && connectToRobot)
     {
         yarp::os::Property remapperOptions;
         remapperOptions.put("device", "remotecontrolboardremapper");
@@ -162,7 +172,7 @@ int main()
         viz.draw();
         lastViz = std::chrono::steady_clock::now();
 
-        if (std::chrono::duration_cast<std::chrono::microseconds>(now - lastSent).count() >= minimumMicroSec)
+        if (useNetwork && std::chrono::duration_cast<std::chrono::microseconds>(now - lastSent).count() >= minimumMicroSec)
         {
 
             if (textureInterface->getPixels(pixels))
