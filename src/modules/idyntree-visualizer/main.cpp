@@ -20,11 +20,14 @@
 #include <cmath>
 #include <chrono>
 #include <thread>
+#include <Utilities.h>
 
 using namespace std::chrono_literals;
 
 int main()
 {
+    // Listen to signals for closing in a clean way the application
+    idyntree_yarp_tools::handleSigInt();
 
     std::vector<std::string> jointList =
     {"neck_pitch", "neck_roll", "neck_yaw",
@@ -135,7 +138,7 @@ int main()
     iDynTree::VectorDynSize joints(jointList.size());
     iDynTree::VectorDynSize jointsInDeg(jointList.size());
 
-    while(viz.run())
+    while(viz.run() && !idyntree_yarp_tools::isClosing)
     {
         now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::microseconds>(now - lastViz).count() < minimumMicroSecViz)
