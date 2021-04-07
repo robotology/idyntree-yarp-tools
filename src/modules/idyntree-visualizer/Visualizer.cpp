@@ -2,7 +2,7 @@
 
 using namespace std::chrono_literals;
 
-bool idyntree_yarp_tools::Visualizer::configure()
+bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -11,42 +11,42 @@ bool idyntree_yarp_tools::Visualizer::configure()
 
     // initialise yarp network
     yarp::os::Network yarpNetwork;
-    if (useNetwork && !yarpNetwork.checkNetwork())
+    if (m_useNetwork && !yarpNetwork.checkNetwork())
     {
         yError()<<"No YARP network found.";
         return false;
     }
 
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName("model.urdf");
-    modelLoader.loadReducedModelFromFile(pathToModel, jointList);
+    m_modelLoader.loadReducedModelFromFile(pathToModel, m_jointList);
 
-    viz.init(options);
-    textureInterface = viz.textures().add("AdditionalTexture", textureOptions);
+    m_viz.init(m_options);
+    m_textureInterface = m_viz.textures().add("AdditionalTexture", m_textureOptions);
 
-    viz.camera().setPosition(iDynTree::Position(1.2, 0.0, 0.5));
-    viz.camera().setTarget(iDynTree::Position(-0.15, 0.0, 0.15));
-    viz.camera().animator()->enableMouseControl(true);
+    m_viz.camera().setPosition(iDynTree::Position(1.2, 0.0, 0.5));
+    m_viz.camera().setTarget(iDynTree::Position(-0.15, 0.0, 0.15));
+    m_viz.camera().animator()->enableMouseControl(true);
 
     double sqrt2 = std::sqrt(2.0);
-    viz.enviroment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
-    viz.enviroment().addLight("secondSun");
-    viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
-    viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    m_viz.enviroment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
+    m_viz.enviroment().addLight("secondSun");
+    m_viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+    m_viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
 
-    textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
-    textureInterface->environment().addLight("secondSun");
-    textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
-    textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
-    textureInterface->environment().setElementVisibility("floor_grid", false);
-    textureInterface->environment().setElementVisibility("world_frame", false);
-    textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 0.0));
+    m_textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    m_textureInterface->environment().addLight("secondSun");
+    m_textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+    m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    m_textureInterface->environment().setElementVisibility("floor_grid", false);
+    m_textureInterface->environment().setElementVisibility("world_frame", false);
+    m_textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 0.0));
 
-    viz.addModel(modelLoader.model(), "robot");
+    m_viz.addModel(m_modelLoader.model(), "robot");
 
-    image.setPixelCode(VOCAB_PIXEL_RGB);
-    image.resize(textureOptions.winWidth, textureOptions.winHeight);
+    m_image.setPixelCode(VOCAB_PIXEL_RGB);
+    m_image.resize(m_textureOptions.winWidth, m_textureOptions.winHeight);
 
-    if (useNetwork)
+    if (m_useNetwork)
     {
         std::string rpcPortName = "/visualizer/rpc";
         this->yarp().attachAsServer(this->m_rpcPort);
@@ -55,16 +55,16 @@ bool idyntree_yarp_tools::Visualizer::configure()
             yError() << "Could not open" << rpcPortName << " RPC port.";
             return false;
         }
-        imagePort.open("/visualizerImage");
+        m_imagePort.open("/visualizerImage");
     }
 
-    if (connectToRobot)
+    if (m_connectToRobot)
     {
         yarp::os::Property remapperOptions;
         remapperOptions.put("device", "remotecontrolboardremapper");
         yarp::os::Bottle axesNames;
         yarp::os::Bottle & axesList = axesNames.addList();
-        for (auto& joint : jointList)
+        for (auto& joint : m_jointList)
         {
             axesList.addString(joint);
         }
@@ -72,45 +72,45 @@ bool idyntree_yarp_tools::Visualizer::configure()
 
         yarp::os::Bottle remoteControlBoards;
         yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
-        for (auto& cb : controlBoards)
+        for (auto& cb : m_controlBoards)
         {
-            remoteControlBoardsList.addString("/" + robotPrefix + "/" + cb);
+            remoteControlBoardsList.addString("/" + m_robotPrefix + "/" + cb);
         }
         remapperOptions.put("remoteControlBoards",remoteControlBoards.get(0));
         remapperOptions.put("localPortPrefix", "/visualizer/remoteControlBoard:i");
 
-        if(!robotDevice.open(remapperOptions))
+        if(!m_robotDevice.open(remapperOptions))
         {
-            connectToRobot = false;
+            m_connectToRobot = false;
         }
-        if (!robotDevice.view(encodersInterface) || !encodersInterface)
+        if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
         {
-            connectToRobot = false;
+            m_connectToRobot = false;
         }
     }
 
 
-    now = std::chrono::steady_clock::now();
-    lastSent = std::chrono::steady_clock::now();
-    lastViz = std::chrono::steady_clock::now();
+    m_now = std::chrono::steady_clock::now();
+    m_lastSent = std::chrono::steady_clock::now();
+    m_lastViz = std::chrono::steady_clock::now();
 
-    minimumMicroSec = std::round(1e6 / (double) desiredFPS);
-    minimumMicroSecViz = std::round(1e6 / (double) maxVizFPS);
+    m_minimumMicroSec = std::round(1e6 / (double) m_desiredFPS);
+    m_minimumMicroSecViz = std::round(1e6 / (double) m_maxVizFPS);
 
-    wHb = iDynTree::Transform::Identity();
-    joints.resize(jointList.size());
-    jointsInDeg.resize(jointList.size());
-    joints.zero();
+    m_wHb = iDynTree::Transform::Identity();
+    m_joints.resize(m_jointList.size());
+    m_jointsInDeg.resize(m_jointList.size());
+    m_joints.zero();
 
     return true;
 }
 
 int idyntree_yarp_tools::Visualizer::run()
 {
-    while(viz.run() && !m_isClosing)
+    while(m_viz.run() && !m_isClosing)
     {
-        now = std::chrono::steady_clock::now();
-        if (std::chrono::duration_cast<std::chrono::microseconds>(now - lastViz).count() < minimumMicroSecViz)
+        m_now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastViz).count() < m_minimumMicroSecViz)
         {
             std::this_thread::sleep_for(1ms);
             continue;
@@ -133,34 +133,34 @@ bool idyntree_yarp_tools::Visualizer::update()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (connectToRobot)
+    if (m_connectToRobot)
     {
-        encodersInterface->getEncoders(jointsInDeg.data());
+        m_encodersInterface->getEncoders(m_jointsInDeg.data());
 
-        for (size_t i = 0; i < jointsInDeg.size(); ++i)
+        for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
         {
-            joints(i) = iDynTree::deg2rad(jointsInDeg(i));
+            m_joints(i) = iDynTree::deg2rad(m_jointsInDeg(i));
         }
     }
 
-    viz.modelViz("robot").setPositions(wHb, joints);
+    m_viz.modelViz("robot").setPositions(m_wHb, m_joints);
 
-    viz.draw();
-    lastViz = std::chrono::steady_clock::now();
+    m_viz.draw();
+    m_lastViz = std::chrono::steady_clock::now();
 
-    if (useNetwork && std::chrono::duration_cast<std::chrono::microseconds>(now - lastSent).count() >= minimumMicroSec)
+    if (m_useNetwork && std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastSent).count() >= m_minimumMicroSec)
     {
 
-        if (textureInterface->getPixels(pixels))
+        if (m_textureInterface->getPixels(m_pixels))
         {
-            for (unsigned int i = 0; i < pixels.size(); ++i)
+            for (unsigned int i = 0; i < m_pixels.size(); ++i)
             {
-                iDynTree::PixelViz& pixelImage = pixels[i];
+                iDynTree::PixelViz& pixelImage = m_pixels[i];
 
                 size_t width;
-                if (mirrorImage)
+                if (m_mirrorImage)
                 {
-                    width = image.width() - 1 - pixelImage.width;
+                    width = m_image.width() - 1 - pixelImage.width;
                 }
                 else
                 {
@@ -168,18 +168,18 @@ bool idyntree_yarp_tools::Visualizer::update()
                 }
 
                 yarp::sig::PixelRgb& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgb*>(
-                                                       image.getPixelAddress(width, pixelImage.height)));
+                                                       m_image.getPixelAddress(width, pixelImage.height)));
 
                 pixelYarp.r = pixelImage.r;
                 pixelYarp.g = pixelImage.g;
                 pixelYarp.b = pixelImage.b;
             }
         }
-        yarp::sig::FlexImage& imageToBeSent = imagePort.prepare();
+        yarp::sig::FlexImage& imageToBeSent = m_imagePort.prepare();
         imageToBeSent.setPixelCode(VOCAB_PIXEL_RGB);
-        imageToBeSent.setExternal(image.getRawImage(), image.width(), image.height()); //Avoid to copy
-        imagePort.write();
-        lastSent = std::chrono::steady_clock::now();
+        imageToBeSent.setExternal(m_image.getRawImage(), m_image.width(), m_image.height()); //Avoid to copy
+        m_imagePort.write();
+        m_lastSent = std::chrono::steady_clock::now();
     }
 
     return true;
@@ -189,10 +189,10 @@ void idyntree_yarp_tools::Visualizer::close()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    image.resize(0,0);
-    imagePort.close();
+    m_image.resize(0,0);
+    m_imagePort.close();
     m_rpcPort.close();
-    robotDevice.close();
+    m_robotDevice.close();
 }
 
 void idyntree_yarp_tools::Visualizer::closeSignalHandler()
@@ -203,7 +203,7 @@ void idyntree_yarp_tools::Visualizer::closeSignalHandler()
 bool idyntree_yarp_tools::Visualizer::setBasePosition(const double x, const double y, const double z)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    wHb.setPosition(iDynTree::Position(x, y, z));
+    m_wHb.setPosition(iDynTree::Position(x, y, z));
     return true;
 }
 
@@ -211,15 +211,15 @@ bool idyntree_yarp_tools::Visualizer::setBaseRotation(const double roll, const d
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     double scaling = M_PI/180;
-    wHb.setRotation(iDynTree::Rotation::RPY(scaling * roll, scaling * pitch, scaling * yaw));
+    m_wHb.setRotation(iDynTree::Rotation::RPY(scaling * roll, scaling * pitch, scaling * yaw));
     return true;
 }
 
 bool idyntree_yarp_tools::Visualizer::setBasePose(const double x, const double y, const double z, const double roll, const double pitch, const double yaw)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    wHb.setPosition(iDynTree::Position(x, y, z));
+    m_wHb.setPosition(iDynTree::Position(x, y, z));
     double scaling = M_PI/180;
-    wHb.setRotation(iDynTree::Rotation::RPY(scaling * roll, scaling * pitch, scaling * yaw));
+    m_wHb.setRotation(iDynTree::Rotation::RPY(scaling * roll, scaling * pitch, scaling * yaw));
     return true;
 }

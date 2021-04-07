@@ -23,7 +23,10 @@ namespace idyntree_yarp_tools {
 
 class Visualizer : public VisualizerCommands
 {
-    std::vector<std::string> jointList =
+
+    std::string m_name;
+
+    std::vector<std::string> m_jointList =
     {"neck_pitch", "neck_roll", "neck_yaw",
      "torso_pitch", "torso_roll", "torso_yaw",
      "l_shoulder_pitch", "l_shoulder_roll", "l_shoulder_yaw", "l_elbow", "l_wrist_prosup", "l_wrist_pitch", "l_wrist_yaw",
@@ -31,39 +34,39 @@ class Visualizer : public VisualizerCommands
      "l_hip_pitch", "l_hip_roll", "l_hip_yaw", "l_knee", "l_ankle_pitch", "l_ankle_roll",
      "r_hip_pitch", "r_hip_roll", "r_hip_yaw", "r_knee", "r_ankle_pitch", "r_ankle_roll"};
 
-    std::vector<std::string> controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"};
+    std::vector<std::string> m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"};
 
-    yarp::dev::PolyDriver robotDevice;
-    yarp::dev::IEncodersTimed *encodersInterface{nullptr};
+    yarp::dev::PolyDriver m_robotDevice;
+    yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
 
-    std::string robotPrefix = "icubSim";
+    std::string m_robotPrefix = "icubSim";
 
-    bool connectToRobot = false;
-    bool useNetwork = true;
+    bool m_connectToRobot = false;
+    bool m_useNetwork = true;
 
-    iDynTree::ModelLoader modelLoader;
+    iDynTree::ModelLoader m_modelLoader;
 
-    iDynTree::Visualizer viz;
-    iDynTree::ITexture* textureInterface{nullptr};
-    iDynTree::VisualizerOptions options, textureOptions;
+    iDynTree::Visualizer m_viz;
+    iDynTree::ITexture* m_textureInterface{nullptr};
+    iDynTree::VisualizerOptions m_options, m_textureOptions;
 
-    std::vector<iDynTree::PixelViz> pixels;
+    std::vector<iDynTree::PixelViz> m_pixels;
 
-    yarp::sig::FlexImage image;
-    yarp::os::BufferedPort<yarp::sig::FlexImage> imagePort;
+    yarp::sig::FlexImage m_image;
+    yarp::os::BufferedPort<yarp::sig::FlexImage> m_imagePort;
 
-    std::chrono::steady_clock::time_point now, lastSent, lastViz;
+    std::chrono::steady_clock::time_point m_now, m_lastSent, m_lastViz;
 
-    unsigned int desiredFPS = 30;
-    unsigned int maxVizFPS = 65;
-    bool mirrorImage = false;
+    unsigned int m_desiredFPS = 30;
+    unsigned int m_maxVizFPS = 65;
+    bool m_mirrorImage = false;
 
-    long minimumMicroSec;
-    long minimumMicroSecViz;
+    long m_minimumMicroSec;
+    long m_minimumMicroSecViz;
 
-    iDynTree::Transform wHb;
-    iDynTree::VectorDynSize joints;
-    iDynTree::VectorDynSize jointsInDeg;
+    iDynTree::Transform m_wHb;
+    iDynTree::VectorDynSize m_joints;
+    iDynTree::VectorDynSize m_jointsInDeg;
 
     std::atomic<bool> m_isClosing{false};
 
@@ -72,7 +75,7 @@ class Visualizer : public VisualizerCommands
     std::mutex m_mutex;
 
 public:
-    bool configure();
+    bool configure(const yarp::os::ResourceFinder& rf);
 
     int run();
 
