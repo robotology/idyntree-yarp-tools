@@ -44,6 +44,130 @@ bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
     return true;
 }
 
+bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions& output)
+{
+    yarp::os::Value width = inputConf.find("imageWidth");
+
+    if (!width.isNull())
+    {
+        if (width.isInt() && width.asInt() >= 0)
+        {
+            output.winWidth = width.asInt();
+        }
+        else
+        {
+            yError() << "imageWidth is specified, but it is not a positive integer.";
+            return false;
+        }
+    }
+
+
+    yarp::os::Value height = inputConf.find("imageHeight");
+
+    if (!height.isNull())
+    {
+        if (height.isInt() && height.asInt() >= 0)
+        {
+            output.winHeight = height.asInt();
+        }
+        else
+        {
+            yError() << "imageHeight is specified, but it is not a positive integer.";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool idyntree_yarp_tools::Visualizer::setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment &environment)
+{
+    yarp::os::Value backgroundColorValue = inputConf.find("backgroundColor");
+
+    if (!backgroundColorValue.isNull())
+    {
+        if (!backgroundColorValue.isList())
+        {
+            yError() << "backgroundColor is specified but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* backGroundColorList = backgroundColorValue.asList();
+        if (backGroundColorList->size() != 3)
+        {
+            yError() << "backgroundColor is specified but the size is different from 3 (only RGB colors are supported).";
+            return false;
+        }
+
+        iDynTree::Vector3 rgb;
+
+        for (size_t i = 0; i< 3; ++i)
+        {
+            if (backGroundColorList->get(i).isDouble())
+            {
+                rgb[i] = backGroundColorList->get(i).asDouble();
+                if (rgb[i] > 1.0 || rgb[i] < 0.0)
+                {
+                    yError() << "The value in position " << i << " (0-based) of backgroundColor is not value. It needs to be between 0.0 and 1.0.";
+                    return false;
+                }
+            }
+            else
+            {
+                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double";
+                return false;
+            }
+        }
+
+        environment.setBackgroundColor(iDynTree::ColorViz(rgb[0], rgb[1], rgb[2], 1.0));
+    }
+
+    yarp::os::Value floorgridColorValue = inputConf.find("floorGridColor");
+
+    if (!floorgridColorValue.isNull())
+    {
+        if (!floorgridColorValue.isList())
+        {
+            yError() << "floorGridColor is specified but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* floorGridColorList = floorgridColorValue.asList();
+        if (floorGridColorList->size() != 3)
+        {
+            yError() << "floorGridColor is specified but the size is different from 3 (only RGB colors are supported).";
+            return false;
+        }
+
+        iDynTree::Vector3 rgb;
+
+        for (size_t i = 0; i< 3; ++i)
+        {
+            if (floorGridColorList->get(i).isDouble())
+            {
+                rgb[i] = floorGridColorList->get(i).asDouble();
+                if (rgb[i] > 1.0 || rgb[i] < 0.0)
+                {
+                    yError() << "The value in position " << i << " (0-based) of floorGridColor is not value. It needs to be between 0.0 and 1.0.";
+                    return false;
+                }
+            }
+            else
+            {
+                yError() << "The value in position " << i << " (0-based) of floorGridColor is not a double";
+                return false;
+            }
+        }
+
+        environment.setFloorGridColor(iDynTree::ColorViz(rgb[0], rgb[1], rgb[2], 1.0));
+    }
+
+    environment.setElementVisibility("floor_grid", inputConf.check("floorVisible", yarp::os::Value(true)).asBool());
+    environment.setElementVisibility("world_frame", inputConf.check("worldFrameVisible", yarp::os::Value(true)).asBool());
+
+    return true;
+}
+
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -61,11 +185,26 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         return false;
     }
 
-    std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName("model.urdf");
+    m_name = rf.check("name", yarp::os::Value("idyntree-visualizer")).asString();
+    m_robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
+
+    std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
+
+    std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
     m_modelLoader.loadReducedModelFromFile(pathToModel, m_jointList);
 
-    m_viz.init(m_options);
-    m_textureInterface = m_viz.textures().add("AdditionalTexture", m_textureOptions);
+    iDynTree::VisualizerOptions vizOptions;
+    if (!setVizOptionsFromConfig(rf, vizOptions))
+    {
+        yError() << "Failed to get the visualizer options from config file.";
+        return false;
+    }
+
+    if (!m_viz.init(vizOptions))
+    {
+        yError() << "Failed to initialize the visualizer.";
+        return false;
+    }
 
     m_viz.camera().setPosition(iDynTree::Position(1.2, 0.0, 0.5));
     m_viz.camera().setTarget(iDynTree::Position(-0.15, 0.0, 0.15));
@@ -77,29 +216,71 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
     m_viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
 
-    m_textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
-    m_textureInterface->environment().addLight("secondSun");
-    m_textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
-    m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
-    m_textureInterface->environment().setElementVisibility("floor_grid", false);
-    m_textureInterface->environment().setElementVisibility("world_frame", false);
-    m_textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 0.0));
+    if (!setVizEnvironmentFromConfig(rf, m_viz.enviroment()))
+    {
+        yError() << "Failed to set visualizer environment.";
+        return false;
+    }
 
     m_viz.addModel(m_modelLoader.model(), "robot");
 
-    m_image.setPixelCode(VOCAB_PIXEL_RGB);
-    m_image.resize(m_textureOptions.winWidth, m_textureOptions.winHeight);
-
     if (!m_offline)
     {
-        std::string rpcPortName = "/visualizer/rpc";
+        std::string rpcPortName = "/" + m_name + "/rpc";
         this->yarp().attachAsServer(this->m_rpcPort);
         if(!m_rpcPort.open(rpcPortName))
         {
             yError() << "Could not open" << rpcPortName << " RPC port.";
             return false;
         }
-        m_imagePort.open("/visualizerImage");
+    }
+
+    bool streamImage = rf.check("streamImage", yarp::os::Value(true)).asBool();
+
+    if (streamImage)
+    {
+        if (m_offline)
+        {
+            yWarning() << "streamImage is set to true, but the visualizer is running offline. No port will be opened.";
+        }
+        else
+        {
+            yarp::os::Bottle streamGroup = rf.findGroup("OUTPUT_STREAM");
+
+            std::string streamPortName = streamGroup.check("portName", yarp::os::Value("image")).asString();
+
+            std::string streamPortNameFull = "/" + m_name + "/" + streamPortName;
+            if (!m_imagePort.open(streamPortNameFull))
+            {
+                yError() << "Failed to open port " << streamPortNameFull;
+                return false;
+            }
+
+            iDynTree::VisualizerOptions textureOptions;
+
+            if (!setVizOptionsFromConfig(streamGroup, textureOptions))
+            {
+                yError() << "Failed to set the options of the additional texture.";
+                return false;
+            }
+
+            m_textureInterface = m_viz.textures().add("AdditionalTexture", textureOptions);
+
+            m_textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
+            m_textureInterface->environment().addLight("secondSun");
+            m_textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+            m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+
+            if(!setVizEnvironmentFromConfig(streamGroup, m_textureInterface->environment()))
+            {
+                yError() << "Failed to set the additional texture environment.";
+                return false;
+            }
+
+            m_image.setPixelCode(VOCAB_PIXEL_RGB);
+            m_image.resize(textureOptions.winWidth, textureOptions.winHeight);
+
+        }
     }
 
     bool autoconnectSpecified = rf.check("autoconnect"); //Check if autoconnect has been explicitly set
@@ -193,7 +374,7 @@ bool idyntree_yarp_tools::Visualizer::update()
     m_viz.draw();
     m_lastViz = std::chrono::steady_clock::now();
 
-    if (!m_offline && std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastSent).count() >= m_minimumMicroSec)
+    if (!m_offline && m_textureInterface && std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastSent).count() >= m_minimumMicroSec)
     {
 
         if (m_textureInterface->getPixels(m_pixels))

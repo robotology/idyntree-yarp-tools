@@ -39,13 +39,12 @@ class Visualizer : public VisualizerCommands
     yarp::dev::PolyDriver m_robotDevice;
     yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
 
-    std::string m_robotPrefix = "icubSim";
+    std::string m_robotPrefix;
 
     iDynTree::ModelLoader m_modelLoader;
 
     iDynTree::Visualizer m_viz;
     iDynTree::ITexture* m_textureInterface{nullptr};
-    iDynTree::VisualizerOptions m_options, m_textureOptions;
 
     std::vector<iDynTree::PixelViz> m_pixels;
 
@@ -74,6 +73,10 @@ class Visualizer : public VisualizerCommands
     std::mutex m_mutex;
 
     bool connectToTheRobot();
+
+    bool setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions &output);
+
+    bool setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment& environment);
 
 public:
     bool configure(const yarp::os::ResourceFinder& rf);
