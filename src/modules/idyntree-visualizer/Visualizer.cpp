@@ -2,6 +2,48 @@
 
 using namespace std::chrono_literals;
 
+bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
+{
+    m_connectedToTheRobot = false;
+    m_robotDevice.close();
+    m_encodersInterface = nullptr;
+
+    yarp::os::Property remapperOptions;
+    remapperOptions.put("device", "remotecontrolboardremapper");
+    yarp::os::Bottle axesNames;
+    yarp::os::Bottle & axesList = axesNames.addList();
+    for (auto& joint : m_jointList)
+    {
+        axesList.addString(joint);
+    }
+    remapperOptions.put("axesNames",axesNames.get(0));
+
+    yarp::os::Bottle remoteControlBoards;
+    yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
+    for (auto& cb : m_controlBoards)
+    {
+        remoteControlBoardsList.addString("/" + m_robotPrefix + "/" + cb);
+    }
+    remapperOptions.put("remoteControlBoards",remoteControlBoards.get(0));
+    remapperOptions.put("localPortPrefix", "/" + m_name +"/remoteControlBoard:i");
+
+    if(!m_robotDevice.open(remapperOptions))
+    {
+        yError() << "Failed to open remote control board remapper.";
+        return false;
+    }
+    if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
+    {
+        yError() << "Failed to view encoder interface.";
+
+        return false;
+    }
+
+    m_connectedToTheRobot = true;
+
+    return true;
+}
+
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -9,11 +51,13 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     // Listen to signals for closing in a clean way the application
     idyntree_yarp_tools::handleSignals([this](){this->closeSignalHandler();});
 
+    m_offline = rf.check("offline");
+
     // initialise yarp network
     yarp::os::Network yarpNetwork;
-    if (m_useNetwork && !yarpNetwork.checkNetwork())
+    if (!m_offline && !yarpNetwork.checkNetwork())
     {
-        yError()<<"No YARP network found.";
+        yError()<<"No YARP network found. Run with --offline if you don't want to use the network.";
         return false;
     }
 
@@ -33,7 +77,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
     m_viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
 
-    m_textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    m_textureInterface->environment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
     m_textureInterface->environment().addLight("secondSun");
     m_textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
     m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
@@ -46,7 +90,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_image.setPixelCode(VOCAB_PIXEL_RGB);
     m_image.resize(m_textureOptions.winWidth, m_textureOptions.winHeight);
 
-    if (m_useNetwork)
+    if (!m_offline)
     {
         std::string rpcPortName = "/visualizer/rpc";
         this->yarp().attachAsServer(this->m_rpcPort);
@@ -58,37 +102,38 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         m_imagePort.open("/visualizerImage");
     }
 
-    if (m_connectToRobot)
+    bool autoconnectSpecified = rf.check("autoconnect"); //Check if autoconnect has been explicitly set
+    bool autoconnectSpecifiedValue = true;
+    if (rf.check("autoconnect")) //autoconnect is present
     {
-        yarp::os::Property remapperOptions;
-        remapperOptions.put("device", "remotecontrolboardremapper");
-        yarp::os::Bottle axesNames;
-        yarp::os::Bottle & axesList = axesNames.addList();
-        for (auto& joint : m_jointList)
-        {
-            axesList.addString(joint);
-        }
-        remapperOptions.put("axesNames",axesNames.get(0));
+        yarp::os::Value autoconnectValue = rf.find("autoconnect");
 
-        yarp::os::Bottle remoteControlBoards;
-        yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
-        for (auto& cb : m_controlBoards)
+        if (!autoconnectValue.isNull() && autoconnectValue.isBool() && !autoconnectValue.asBool()) //autoconnect is specified to be false
         {
-            remoteControlBoardsList.addString("/" + m_robotPrefix + "/" + cb);
+            autoconnectSpecifiedValue = false;
         }
-        remapperOptions.put("remoteControlBoards",remoteControlBoards.get(0));
-        remapperOptions.put("localPortPrefix", "/visualizer/remoteControlBoard:i");
 
-        if(!m_robotDevice.open(remapperOptions))
+    }
+    if (autoconnectSpecifiedValue)
+    {
+        if (!m_offline)
         {
-            m_connectToRobot = false;
+            bool ok = connectToTheRobot();
+            if (autoconnectSpecified && !ok)
+            {
+                yError() << "It is specified to autoconnect, but the connection to the robot failed.";
+                return false;
+            }
         }
-        if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
+        else
         {
-            m_connectToRobot = false;
+            if (autoconnectSpecified)
+            {
+                yError() << "It is specified to autoconnect, but it is also specified to run offline.";
+                return false;
+            }
         }
     }
-
 
     m_now = std::chrono::steady_clock::now();
     m_lastSent = std::chrono::steady_clock::now();
@@ -133,7 +178,7 @@ bool idyntree_yarp_tools::Visualizer::update()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
-    if (m_connectToRobot)
+    if (m_connectedToTheRobot)
     {
         m_encodersInterface->getEncoders(m_jointsInDeg.data());
 
@@ -148,7 +193,7 @@ bool idyntree_yarp_tools::Visualizer::update()
     m_viz.draw();
     m_lastViz = std::chrono::steady_clock::now();
 
-    if (m_useNetwork && std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastSent).count() >= m_minimumMicroSec)
+    if (!m_offline && std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastSent).count() >= m_minimumMicroSec)
     {
 
         if (m_textureInterface->getPixels(m_pixels))
@@ -222,4 +267,10 @@ bool idyntree_yarp_tools::Visualizer::setBasePose(const double x, const double y
     double scaling = M_PI/180;
     m_wHb.setRotation(iDynTree::Rotation::RPY(scaling * roll, scaling * pitch, scaling * yaw));
     return true;
+}
+
+bool idyntree_yarp_tools::Visualizer::reconnectToRobot()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return connectToTheRobot();
 }

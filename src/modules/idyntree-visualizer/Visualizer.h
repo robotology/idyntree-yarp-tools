@@ -41,9 +41,6 @@ class Visualizer : public VisualizerCommands
 
     std::string m_robotPrefix = "icubSim";
 
-    bool m_connectToRobot = false;
-    bool m_useNetwork = true;
-
     iDynTree::ModelLoader m_modelLoader;
 
     iDynTree::Visualizer m_viz;
@@ -69,10 +66,14 @@ class Visualizer : public VisualizerCommands
     iDynTree::VectorDynSize m_jointsInDeg;
 
     std::atomic<bool> m_isClosing{false};
+    std::atomic<bool> m_connectedToTheRobot{false};
+    std::atomic<bool> m_offline{false};
 
     yarp::os::Port m_rpcPort;
 
     std::mutex m_mutex;
+
+    bool connectToTheRobot();
 
 public:
     bool configure(const yarp::os::ResourceFinder& rf);
@@ -106,6 +107,12 @@ public:
      * @return true/false in case of success/failure;
      */
     virtual bool setBasePose(const double x, const double y, const double z, const double roll, const double pitch, const double yaw) override;
+
+    /**
+     * Attempt to reconnect to the robot.
+     * @return true/false in case of success/failure;
+     */
+    virtual bool reconnectToRobot() override;
 };
 
 } //namespace idyntree_yarp_tools

@@ -21,4 +21,10 @@ service VisualizerCommands
      * @return true/false in case of success/failure;
      */
     bool setBasePose(1:double x, 2:double y, 3:double z, 4:double roll, 5:double pitch, 6:double yaw);
+
+    /**
+     * Attempt to reconnect to the robot.
+     * @return true/false in case of success/failure;
+     */
+    bool reconnectToRobot();
 }
