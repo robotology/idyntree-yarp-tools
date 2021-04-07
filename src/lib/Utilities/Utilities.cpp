@@ -2,7 +2,7 @@
 #include <cstring>
 #include <thread>
 #include <csignal>
-#include <iostream>
+#include <yarp/os/LogStream.h>
 
 namespace idyntree_yarp_tools {
 
@@ -14,7 +14,7 @@ void my_handler(int sig)
 
     if (sig == SIGABRT)
     {
-        std::cout << "Aborted. " << std::endl;
+        yInfo() << "Aborted.";
         if (ct > 3) //to avoid that std::abort is called again
         {
             return;
@@ -23,10 +23,10 @@ void my_handler(int sig)
 
     ct++;
     if (ct > 3) {
-        std::cerr <<  "Aborting (calling abort())..." << std::endl;
+        yInfo() <<  "Aborting (calling abort())...";
         std::abort();
     }
-    std::cout << "[try " << ct << " of 3] Trying to shut down." << std::endl;
+    yInfo() << "[try " << ct << " of 3] Trying to shut down.";
 
     customHandlerLambda();
 }
