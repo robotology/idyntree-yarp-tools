@@ -13,6 +13,8 @@
 int main()
 {
 
+    yarp::os::Network yarp; //to initialize the network
+
     idyntree_yarp_tools::Visualizer viz;
 
     if (!viz.configure())
