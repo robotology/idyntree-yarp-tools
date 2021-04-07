@@ -4,10 +4,19 @@ using namespace std::chrono_literals;
 
 bool idyntree_yarp_tools::Visualizer::configure()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     // Listen to signals for closing in a clean way the application
     idyntree_yarp_tools::handleSignals([this](){this->closeSignalHandler();});
 
-    std::lock_guard<std::mutex> lock(m_mutex);
+    // initialise yarp network
+    yarp::os::Network yarpNetwork;
+    if (useNetwork && !yarpNetwork.checkNetwork())
+    {
+        yError()<<"No YARP network found.";
+        return false;
+    }
+
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName("model.urdf");
     modelLoader.loadReducedModelFromFile(pathToModel, jointList);
 
@@ -36,15 +45,6 @@ bool idyntree_yarp_tools::Visualizer::configure()
 
     image.setPixelCode(VOCAB_PIXEL_RGB);
     image.resize(textureOptions.winWidth, textureOptions.winHeight);
-
-    // initialise yarp network
-    yarp::os::Network yarpNetwork;
-    if (useNetwork && !yarpNetwork.checkNetwork())
-    {
-        yWarning()<<"No YARP network found. Avoiding to use the network.";
-        useNetwork = false;
-        connectToRobot = false;
-    }
 
     if (useNetwork)
     {
