@@ -557,3 +557,31 @@ bool idyntree_yarp_tools::Visualizer::reconnectToRobot()
     std::lock_guard<std::mutex> lock(m_mutex);
     return connectToTheRobot();
 }
+
+std::vector<double> idyntree_yarp_tools::Visualizer::getCameraPosition()
+{
+    std::vector<double> output(3);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        iDynTree::Position pos =  m_viz.camera().getPosition();
+        output[0] = pos[0];
+        output[1] = pos[1];
+        output[2] = pos[2];
+
+        return output;
+    }
+}
+
+std::vector<double> idyntree_yarp_tools::Visualizer::getCameraTarget()
+{
+    std::vector<double> output(3);
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        iDynTree::Position target =  m_viz.camera().getTarget();
+        output[0] = target[0];
+        output[1] = target[1];
+        output[2] = target[2];
+
+        return output;
+    }
+}

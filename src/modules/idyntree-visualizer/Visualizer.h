@@ -94,14 +94,14 @@ public:
     /**
      * Set the base position.
      * The values are expected in meters.
-     * @return true/false in case of success/failure;
+     * @return true/false in case of success/failure.
      */
     virtual bool setBasePosition(const double x, const double y, const double z) override;
 
     /**
      * Set the base rotation.
      * The values are expected in degrees.
-     * @return true/false in case of success/failure;
+     * @return true/false in case of success/failure.
      */
     virtual bool setBaseRotation(const double roll, const double pitch, const double yaw) override;
 
@@ -109,15 +109,27 @@ public:
      * Set the base pose.
      * The x, y, and z values are expected in meters
      * The roll, pitch, and yaw avalues are expected in degrees.
-     * @return true/false in case of success/failure;
+     * @return true/false in case of success/failure.
      */
     virtual bool setBasePose(const double x, const double y, const double z, const double roll, const double pitch, const double yaw) override;
 
     /**
      * Attempt to reconnect to the robot.
-     * @return true/false in case of success/failure;
+     * @return true/false in case of success/failure.
      */
     virtual bool reconnectToRobot() override;
+
+    /**
+     * Get the camera position
+     * @return A vector of 3 elements with the camera position.
+     */
+    virtual std::vector<double> getCameraPosition() override;
+
+    /**
+     * Get the camera target
+     * @return A vector of 3 elements with the camera target.
+     */
+    virtual std::vector<double> getCameraTarget() override;
 };
 
 } //namespace idyntree_yarp_tools
