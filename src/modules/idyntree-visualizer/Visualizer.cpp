@@ -247,7 +247,7 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
             }
             else
             {
-                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double";
+                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double.";
                 return false;
             }
         }
@@ -258,6 +258,83 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
     camera.animator()->enableMouseControl(true);
 
     return true;
+}
+
+bool idyntree_yarp_tools::Visualizer::getOrGuessJointsAndBoards(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
+{
+    m_jointList.clear();
+
+    yarp::os::Value jointsValue = inputConf.find("joints");
+
+    if (jointsValue.isNull())
+    {
+        for (size_t i = 0; i < model.getNrOfJoints(); ++i)
+        {
+            if (model.getJoint(i)->getNrOfDOFs() == 1)
+            {
+                m_jointList.push_back(model.getJointName(i)); //automatically select all the joint in the model that have 1DOF
+            }
+        }
+        if (m_jointList.size() != model.getNrOfPosCoords())
+        {
+            yError() << "The model contains joints with more than 1DOF. This is not yet supported.";
+            return false;
+        }
+    }
+    else
+    {
+        if (!jointsValue.isList())
+        {
+            yError() << "joints is specified, but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* jointList = jointsValue.asList();
+
+        for (size_t i = 0; i < jointList->size(); ++i)
+        {
+            yarp::os::Value jvalue = jointList->get(i);
+            if (!jvalue.isString())
+            {
+                yError() << "The value in position " << i << " (0-based) of joints is not a string.";
+                return false;
+            }
+            m_jointList.push_back(jvalue.asString());
+        }
+    }
+
+
+    m_controlBoards.clear();
+    yarp::os::Value controlBoardsValue = inputConf.find("controlboards");
+
+    if (controlBoardsValue.isNull())
+    {
+        m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"}; //assumes these as controlboards
+    }
+    else
+    {
+        if (!controlBoardsValue.isList())
+        {
+            yError() << "controlBoards is specified, but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* controlBoardsList = controlBoardsValue.asList();
+
+        for (size_t i = 0; i < controlBoardsList->size(); ++i)
+        {
+            yarp::os::Value cbValue = controlBoardsList->get(i);
+            if (!cbValue.isString())
+            {
+                yError() << "The value in position " << i << " (0-based) of controlBoards is not a string.";
+                return false;
+            }
+            m_controlBoards.push_back(cbValue.asString());
+        }
+    }
+
+    return true;
+
 }
 
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
@@ -283,7 +360,20 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
 
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
-    m_modelLoader.loadReducedModelFromFile(pathToModel, m_jointList);
+    m_modelLoader.loadModelFromFile(pathToModel);
+
+    if (!getOrGuessJointsAndBoards(rf, m_modelLoader.model()))
+    {
+        yError() << "Failed to retrieve the joints and the control boards.";
+        return false;
+    }
+
+    if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_jointList))
+    {
+        yError() << "Failed to get reduced model.";
+        return false;
+    }
+
 
     iDynTree::VisualizerOptions vizOptions;
     m_maxVizFPS = 65;  //default value
@@ -517,6 +607,7 @@ void idyntree_yarp_tools::Visualizer::close()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
+    m_viz.close();
     m_image.resize(0,0);
     m_imagePort.close();
     m_rpcPort.close();
