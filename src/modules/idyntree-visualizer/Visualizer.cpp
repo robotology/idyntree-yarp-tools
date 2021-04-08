@@ -44,7 +44,7 @@ bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
     return true;
 }
 
-bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions& output)
+bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions& output, unsigned int &fps)
 {
     yarp::os::Value width = inputConf.find("imageWidth");
 
@@ -73,6 +73,21 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
         else
         {
             yError() << "imageHeight is specified, but it is not a positive integer.";
+            return false;
+        }
+    }
+
+    yarp::os::Value fpsValue = inputConf.find("maxFPS");
+
+    if (!fpsValue.isNull())
+    {
+        if (fpsValue.isInt() && fpsValue.asInt() >= 0)
+        {
+            fps = fpsValue.asInt();
+        }
+        else
+        {
+            yError() << "maxFPS is specified, but it is not a positive integer.";
             return false;
         }
     }
@@ -168,6 +183,83 @@ bool idyntree_yarp_tools::Visualizer::setVizEnvironmentFromConfig(const yarp::os
     return true;
 }
 
+bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Searchable &inputConf, iDynTree::ICamera &camera)
+{
+    yarp::os::Value cameraPosition = inputConf.find("cameraPosition");
+
+    if (!cameraPosition.isNull())
+    {
+        if (!cameraPosition.isList())
+        {
+            yError() << "cameraPosition is specified but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* cameraPositionList = cameraPosition.asList();
+        if (cameraPositionList->size() != 3)
+        {
+            yError() << "cameraPosition is specified but the size is different from 3.";
+            return false;
+        }
+
+        iDynTree::Position desiredPosition;
+
+        for (size_t i = 0; i< 3; ++i)
+        {
+            if (cameraPositionList->get(i).isDouble())
+            {
+                desiredPosition[i] = cameraPositionList->get(i).asDouble();
+            }
+            else
+            {
+                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double";
+                return false;
+            }
+        }
+
+        camera.setPosition(desiredPosition);
+    }
+
+    yarp::os::Value cameraTarget = inputConf.find("cameraTarget");
+
+    if (!cameraTarget.isNull())
+    {
+        if (!cameraTarget.isList())
+        {
+            yError() << "cameraTarget is specified but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* cameraTargetList = cameraTarget.asList();
+        if (cameraTargetList->size() != 3)
+        {
+            yError() << "cameraTarget is specified but the size is different from 3.";
+            return false;
+        }
+
+        iDynTree::Position desiredTarget;
+
+        for (size_t i = 0; i< 3; ++i)
+        {
+            if (cameraTargetList->get(i).isDouble())
+            {
+                desiredTarget[i] = cameraTargetList->get(i).asDouble();
+            }
+            else
+            {
+                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double";
+                return false;
+            }
+        }
+
+        camera.setTarget(desiredTarget);
+    }
+
+    camera.animator()->enableMouseControl(true);
+
+    return true;
+}
+
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -194,7 +286,8 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_modelLoader.loadReducedModelFromFile(pathToModel, m_jointList);
 
     iDynTree::VisualizerOptions vizOptions;
-    if (!setVizOptionsFromConfig(rf, vizOptions))
+    m_maxVizFPS = 65;  //default value
+    if (!setVizOptionsFromConfig(rf, vizOptions, m_maxVizFPS))
     {
         yError() << "Failed to get the visualizer options from config file.";
         return false;
@@ -206,9 +299,11 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         return false;
     }
 
-    m_viz.camera().setPosition(iDynTree::Position(1.2, 0.0, 0.5));
-    m_viz.camera().setTarget(iDynTree::Position(-0.15, 0.0, 0.15));
-    m_viz.camera().animator()->enableMouseControl(true);
+    if (!setVizCameraFromConfig(rf, m_viz.camera()))
+    {
+        yError() << "Failed to initialize the visualizer camera.";
+        return false;
+    }
 
     double sqrt2 = std::sqrt(2.0);
     m_viz.enviroment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
@@ -258,7 +353,8 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
             iDynTree::VisualizerOptions textureOptions;
 
-            if (!setVizOptionsFromConfig(streamGroup, textureOptions))
+            m_desiredFPS = 30; //default value
+            if (!setVizOptionsFromConfig(streamGroup, textureOptions, m_desiredFPS))
             {
                 yError() << "Failed to set the options of the additional texture.";
                 return false;
@@ -276,6 +372,8 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
                 yError() << "Failed to set the additional texture environment.";
                 return false;
             }
+
+            m_mirrorImage = streamGroup.check("mirrorImage", yarp::os::Value("false")).asBool();
 
             m_image.setPixelCode(VOCAB_PIXEL_RGB);
             m_image.resize(textureOptions.winWidth, textureOptions.winHeight);
@@ -351,8 +449,6 @@ int idyntree_yarp_tools::Visualizer::run()
 
     close();
     return EXIT_SUCCESS;
-
-
 }
 
 bool idyntree_yarp_tools::Visualizer::update()

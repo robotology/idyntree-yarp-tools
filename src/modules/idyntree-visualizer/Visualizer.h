@@ -53,9 +53,9 @@ class Visualizer : public VisualizerCommands
 
     std::chrono::steady_clock::time_point m_now, m_lastSent, m_lastViz;
 
-    unsigned int m_desiredFPS = 30;
-    unsigned int m_maxVizFPS = 65;
-    bool m_mirrorImage = false;
+    unsigned int m_desiredFPS;
+    unsigned int m_maxVizFPS;
+    bool m_mirrorImage;
 
     long m_minimumMicroSec;
     long m_minimumMicroSecViz;
@@ -74,9 +74,11 @@ class Visualizer : public VisualizerCommands
 
     bool connectToTheRobot();
 
-    bool setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions &output);
+    bool setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions &output, unsigned int& fps);
 
     bool setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment& environment);
+
+    bool setVizCameraFromConfig(const yarp::os::Searchable &inputConf, iDynTree::ICamera& camera);
 
 public:
     bool configure(const yarp::os::ResourceFinder& rf);
