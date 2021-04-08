@@ -333,7 +333,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
 int idyntree_yarp_tools::Visualizer::run()
 {
-    while(m_viz.run() && !m_isClosing)
+    while(!m_isClosing)
     {
         m_now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::microseconds>(m_now - m_lastViz).count() < m_minimumMicroSecViz)
@@ -358,6 +358,12 @@ int idyntree_yarp_tools::Visualizer::run()
 bool idyntree_yarp_tools::Visualizer::update()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (!m_viz.run())
+    {
+        m_isClosing = true;
+        return true;
+    }
 
     if (m_connectedToTheRobot)
     {
