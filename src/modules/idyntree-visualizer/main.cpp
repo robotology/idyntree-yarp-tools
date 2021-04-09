@@ -21,6 +21,11 @@ int main(int argc, char * argv[])
 
     idyntree_yarp_tools::Visualizer viz;
 
+    if (viz.neededHelp(rf))
+    {
+        return EXIT_SUCCESS;
+    }
+
     if (!viz.configure(rf))
     {
         return EXIT_FAILURE;

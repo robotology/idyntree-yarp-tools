@@ -79,6 +79,8 @@ class Visualizer : public VisualizerCommands
 public:
     bool configure(const yarp::os::ResourceFinder& rf);
 
+    bool neededHelp(const yarp::os::ResourceFinder& rf);
+
     int run();
 
     bool update();

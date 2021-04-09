@@ -365,6 +365,11 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     // Listen to signals for closing in a clean way the application
     idyntree_yarp_tools::handleSignals([this](){this->closeSignalHandler();});
 
+    if (!rf.isNull())
+    {
+        yInfo() << "Configuring with the following options:\n" << rf.toString();
+    }
+
     m_offline = rf.check("offline");
 
     // initialise yarp network
@@ -548,6 +553,50 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_joints.zero();
 
     return true;
+}
+
+bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder &rf)
+{
+
+    if (rf.check("help"))
+    {
+        std::cout << "Usage: idyntree-visualizer" << std::endl
+                  << "Optional arguments:" << std::endl
+                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-visualizer;" << std::endl
+                  << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl
+                  << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl
+                  << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl
+                  << "--autoconnect [true|false]                         If set to true, or no value is provided, it will try to connect to the robot automatically at startup." << std::endl
+                  << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl
+                  << "--controlboards <(\"cb1\", ...)>                     The set of control boards to connect to. Default: (\"head\", \"torso\", \"left_arm\", \"right_arm\", \"left_leg\", \"right_leg\");" << std::endl
+                  << "--joints <(\"j1\", ...)>                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
+                  << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl
+                  << "--cameraPosition <(px, py, pz)>                    Camera initial position. Default (0.8, 0.8, 0.8);" << std::endl
+                  << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl
+                  << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl
+                  << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl
+                  << "--backgroundColor <(r, g, b)>                      Visualizer background color. Default (0.0, 0.4, 0.4);" << std::endl
+                  << "--floorGridColor <(r, g, b)>                       Visualizer floor grid color. Default (0.0, 0.0, 1.0);" << std::endl
+                  << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl
+                  << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl
+                  << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl
+                  << " The following optional arguments are used only if the streaming of the image is enabled (see --streamImage):" << std::endl
+                  << "--OUTPUT_STREAM::portName <name>                   The suffix of the port where the stream the image. Default \"image\";" <<std::endl
+                  << "--OUTPUT_STREAM::imageWidth <width>                The width of the image streamed on the port. Default 400;" <<std::endl
+                  << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl
+                  << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl
+                  << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl
+                  << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl
+                  << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl
+                  << "--OUTPUT_STREAM::backgroundColor <(r, g, b)>       Set the background color of the streamed image. Default (0.0, 0.0, 0.0);" << std::endl
+                  << "--OUTPUT_STREAM::floorGridColor <(r, g, b)>        Set the floor grid color of the streamed image. Default (0.0, 0.0, 1.0);" << std::endl;
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 int idyntree_yarp_tools::Visualizer::run()
