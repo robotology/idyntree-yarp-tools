@@ -1,1 +1,1 @@
-add_subdirectory(idyntree-visualizer)
+add_subdirectory(idyntree-yarp-visualizer)
