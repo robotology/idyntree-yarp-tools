@@ -177,8 +177,29 @@ bool idyntree_yarp_tools::Visualizer::setVizEnvironmentFromConfig(const yarp::os
         environment.setFloorGridColor(iDynTree::ColorViz(rgb[0], rgb[1], rgb[2], 1.0));
     }
 
-    environment.setElementVisibility("floor_grid", inputConf.check("floorVisible", yarp::os::Value(true)).asBool());
-    environment.setElementVisibility("world_frame", inputConf.check("worldFrameVisible", yarp::os::Value(true)).asBool());
+    yarp::os::Value floorVisibleValue = inputConf.find("floorVisible");
+
+    if (!floorVisibleValue.isNull())
+    {
+        if (!floorVisibleValue.isBool())
+        {
+            yError() << "floorVisible is specified but it is not a bool.";
+            return false;
+        }
+        environment.setElementVisibility("floor_grid", floorVisibleValue.asBool());
+    }
+
+    yarp::os::Value worldFrameVisibleValue = inputConf.find("worldFrameVisible");
+
+    if (!worldFrameVisibleValue.isNull())
+    {
+        if (!worldFrameVisibleValue.isBool())
+        {
+            yError() << "worldFrameVisible is specified but it is not a bool.";
+            return false;
+        }
+        environment.setElementVisibility("world_frame", worldFrameVisibleValue.asBool());
+    }
 
     return true;
 }
@@ -443,7 +464,11 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
             iDynTree::VisualizerOptions textureOptions;
 
-            m_desiredFPS = 30; //default value
+            //default values
+            textureOptions.winHeight = 400;
+            textureOptions.winWidth = 400;
+            m_desiredFPS = 30;
+
             if (!setVizOptionsFromConfig(streamGroup, textureOptions, m_desiredFPS))
             {
                 yError() << "Failed to set the options of the additional texture.";
@@ -456,6 +481,12 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
             m_textureInterface->environment().addLight("secondSun");
             m_textureInterface->environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
             m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+
+            //Default values
+            m_textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 1.0));
+            m_textureInterface->environment().setFloorGridColor(iDynTree::ColorViz(0.0, 0.0, 1.0, 1.0));
+            m_textureInterface->environment().setElementVisibility("floor_grid", false);
+            m_textureInterface->environment().setElementVisibility("world_frame", false);
 
             if(!setVizEnvironmentFromConfig(streamGroup, m_textureInterface->environment()))
             {

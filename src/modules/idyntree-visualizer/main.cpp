@@ -17,10 +17,6 @@ int main(int argc, char * argv[])
 
     yarp::os::ResourceFinder& rf = yarp::os::ResourceFinder::getResourceFinderSingleton();
 
-    rf.setDefaultConfigFile("idyntree-visualizer.ini");
-
-    rf.setDefaultContext("idyntree-visualizer");
-
     rf.configure(argc, argv);
 
     idyntree_yarp_tools::Visualizer viz;
