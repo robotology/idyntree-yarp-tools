@@ -10,12 +10,23 @@
 
 #include "Visualizer.h"
 
-int main()
+int main(int argc, char * argv[])
 {
+
+    yarp::os::Network yarp; //to initialize the network
+
+    yarp::os::ResourceFinder& rf = yarp::os::ResourceFinder::getResourceFinderSingleton();
+
+    rf.configure(argc, argv);
 
     idyntree_yarp_tools::Visualizer viz;
 
-    if (!viz.configure())
+    if (viz.neededHelp(rf))
+    {
+        return EXIT_SUCCESS;
+    }
+
+    if (!viz.configure(rf))
     {
         return EXIT_FAILURE;
     }
