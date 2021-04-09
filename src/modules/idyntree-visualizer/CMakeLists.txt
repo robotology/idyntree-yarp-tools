@@ -1,4 +1,4 @@
-set(MODULE_NAME idyntree-visualizer)
+set(MODULE_NAME idyntree-yarp-visualizer)
 
 set (HDR Visualizer.h)
 set (SRC main.cpp Visualizer.cpp)

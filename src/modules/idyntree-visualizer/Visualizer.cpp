@@ -380,7 +380,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         return false;
     }
 
-    m_name = rf.check("name", yarp::os::Value("idyntree-visualizer")).asString();
+    m_name = rf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
     m_robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
 
     std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
@@ -560,9 +560,9 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
 
     if (rf.check("help"))
     {
-        std::cout << "Usage: idyntree-visualizer" << std::endl
+        std::cout << "Usage: idyntree-yarp-visualizer" << std::endl
                   << "Optional arguments:" << std::endl
-                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-visualizer;" << std::endl
+                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl
                   << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl
                   << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl
                   << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl
