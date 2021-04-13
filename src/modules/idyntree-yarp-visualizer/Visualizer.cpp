@@ -589,7 +589,18 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl
                   << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl
                   << "--OUTPUT_STREAM::backgroundColor <(r, g, b)>       Set the background color of the streamed image. Default (0.0, 0.0, 0.0);" << std::endl
-                  << "--OUTPUT_STREAM::floorGridColor <(r, g, b)>        Set the floor grid color of the streamed image. Default (0.0, 0.0, 1.0);" << std::endl;
+                  << "--OUTPUT_STREAM::floorGridColor <(r, g, b)>        Set the floor grid color of the streamed image. Default (0.0, 0.0, 1.0);" << std::endl << std::endl
+                  << "All these options can be added to a .ini file. If you use the following argument:" << std::endl
+                  << "--from </path/file>.ini                            Example of .ini file:" << std::endl
+                  << "                                                   #--------------------"<< std::endl
+                  << "                                                   name    anotherName" << std::endl
+                  << "                                                   robot   myRobot" << std::endl
+                  << "                                                   [OUTPUT_STREAM]" <<std::endl
+                  << "                                                   portName    myPort" << std::endl
+                  << "                                                   mirrorImage true" << std::endl
+                  << "                                                   #--------------------" <<std::endl
+                  << "                                                   Note that all the -- have been removed, while the prefix OUTPUT_STREAM::" <<std::endl
+                  << "                                                   is no more necessary after the [OUTPUT_STREAM] tag." <<std::endl;
 
         return true;
     }
