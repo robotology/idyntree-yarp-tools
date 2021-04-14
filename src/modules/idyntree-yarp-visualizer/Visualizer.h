@@ -60,6 +60,7 @@ class Visualizer : public VisualizerCommands
 
     std::atomic<ConnectionType> m_connectionType{ConnectionType::REMAPPER};
     RemapperConnector m_remapperConnector;
+    StateExtConnector m_stateExtConnector;
 
     yarp::os::Port m_rpcPort;
 
@@ -72,8 +73,6 @@ class Visualizer : public VisualizerCommands
     bool setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment& environment);
 
     bool setVizCameraFromConfig(const yarp::os::Searchable &inputConf, iDynTree::ICamera& camera);
-
-    bool getOrGuessBasicInfo(const yarp::os::Searchable &inputConf, const iDynTree::Model& model);
 
     void updateJointValues();
 

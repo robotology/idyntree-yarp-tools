@@ -6,12 +6,21 @@ bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
 {
     m_connectedToTheRobot = false;
 
-    if (m_connectionType == ConnectionType::REMAPPER)
+    switch (m_connectionType)
     {
+    case ConnectionType::REMAPPER:
         if (!m_remapperConnector.connectToRobot())
         {
             return false;
         }
+        break;
+
+    case ConnectionType::STATE_EXT:
+        if (!m_stateExtConnector.connectToRobot())
+        {
+            return false;
+        }
+        break;
     }
 
     m_connectedToTheRobot = true;
@@ -256,68 +265,19 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
     return true;
 }
 
-bool idyntree_yarp_tools::Visualizer::getOrGuessBasicInfo(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
-{
-
-    std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
-    m_basicInfo->name = inputConf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
-    m_basicInfo->robotPrefix = inputConf.check("robot", yarp::os::Value("icub")).asString();
-
-    m_basicInfo->jointList.clear();
-
-    yarp::os::Value jointsValue = inputConf.find("joints");
-
-    if (jointsValue.isNull())
-    {
-        for (size_t i = 0; i < model.getNrOfJoints(); ++i)
-        {
-            if (model.getJoint(i)->getNrOfDOFs() == 1)
-            {
-                m_basicInfo->jointList.push_back(model.getJointName(i)); //automatically select all the joint in the model that have 1DOF
-            }
-        }
-        if (m_basicInfo->jointList.size() != model.getNrOfPosCoords())
-        {
-            yError() << "The model contains joints with more than 1DOF. This is not yet supported.";
-            return false;
-        }
-    }
-    else
-    {
-        if (!jointsValue.isList())
-        {
-            yError() << "joints is specified, but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* jointList = jointsValue.asList();
-
-        for (size_t i = 0; i < jointList->size(); ++i)
-        {
-            yarp::os::Value jvalue = jointList->get(i);
-            if (!jvalue.isString())
-            {
-                yError() << "The value in position " << i << " (0-based) of joints is not a string.";
-                return false;
-            }
-            m_basicInfo->jointList.push_back(jvalue.asString());
-        }
-    }
-
-    m_joints.resize(m_basicInfo->jointList.size());
-    m_joints.zero();
-
-    return true;
-
-}
-
 void idyntree_yarp_tools::Visualizer::updateJointValues()
 {
     if (m_connectedToTheRobot)
     {
-        if (m_connectionType == ConnectionType::REMAPPER)
+        switch (m_connectionType)
         {
+        case ConnectionType::REMAPPER:
             m_remapperConnector.getJointValues(m_joints);
+            break;
+
+        case ConnectionType::STATE_EXT:
+            m_stateExtConnector.getJointValues(m_joints);
+            break;
         }
     }
 }
@@ -351,23 +311,47 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
     m_modelLoader.loadModelFromFile(pathToModel);
 
-    if (!getOrGuessBasicInfo(rf, m_modelLoader.model()))
+    std::string localName;
+
     {
-        yError() << "Failed to retrieve the joints and the control boards.";
-        return false;
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        m_basicInfo->name = rf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
+        localName = m_basicInfo->name;
+        m_basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    std::string localName;
+    if (m_stateExtConnector.usingStateExt(rf))
+    {
+        m_connectionType = ConnectionType::STATE_EXT;
+
+        if (!m_stateExtConnector.configure(rf, m_basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via the StateExt port.";
+            return false;
+        }
+    }
+    else
+    {
+        m_connectionType = ConnectionType::REMAPPER;
+
+        if (!m_remapperConnector.configure(rf, m_modelLoader.model(), m_basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
+            return false;
+        }
+    }
+
     {
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
 
-        if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_basicInfo->jointList))
+        if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_basicInfo->jointList)) //The connectors take care of setting the joint list
         {
             yError() << "Failed to get reduced model.";
             return false;
         }
 
-        localName = m_basicInfo->name;
+        m_joints.resize(m_basicInfo->jointList.size());
+        m_joints.zero();
     }
 
     iDynTree::VisualizerOptions vizOptions;
@@ -474,12 +458,6 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
             m_image.resize(textureOptions.winWidth, textureOptions.winHeight);
 
         }
-    }
-
-    if (!m_remapperConnector.configure(rf, m_basicInfo))
-    {
-        yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
-        return false;
     }
 
     bool autoconnectSpecified = rf.check("autoconnect"); //Check if autoconnect has been explicitly set
