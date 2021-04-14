@@ -5,38 +5,13 @@ using namespace std::chrono_literals;
 bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
 {
     m_connectedToTheRobot = false;
-    m_robotDevice.close();
-    m_encodersInterface = nullptr;
 
-    yarp::os::Property remapperOptions;
-    remapperOptions.put("device", "remotecontrolboardremapper");
-    yarp::os::Bottle axesNames;
-    yarp::os::Bottle & axesList = axesNames.addList();
-    for (auto& joint : m_jointList)
+    if (m_connectionType == ConnectionType::REMAPPER)
     {
-        axesList.addString(joint);
-    }
-    remapperOptions.put("axesNames",axesNames.get(0));
-
-    yarp::os::Bottle remoteControlBoards;
-    yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
-    for (auto& cb : m_controlBoards)
-    {
-        remoteControlBoardsList.addString("/" + m_robotPrefix + "/" + cb);
-    }
-    remapperOptions.put("remoteControlBoards",remoteControlBoards.get(0));
-    remapperOptions.put("localPortPrefix", "/" + m_name +"/remoteControlBoard:i");
-
-    if(!m_robotDevice.open(remapperOptions))
-    {
-        yError() << "Failed to open remote control board remapper.";
-        return false;
-    }
-    if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
-    {
-        yError() << "Failed to view encoder interface.";
-
-        return false;
+        if (!m_remapperConnector.connectToRobot())
+        {
+            return false;
+        }
     }
 
     m_connectedToTheRobot = true;
@@ -281,9 +256,14 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
     return true;
 }
 
-bool idyntree_yarp_tools::Visualizer::getOrGuessJointsAndBoards(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
+bool idyntree_yarp_tools::Visualizer::getOrGuessBasicInfo(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
 {
-    m_jointList.clear();
+
+    std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+    m_basicInfo->name = inputConf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
+    m_basicInfo->robotPrefix = inputConf.check("robot", yarp::os::Value("icub")).asString();
+
+    m_basicInfo->jointList.clear();
 
     yarp::os::Value jointsValue = inputConf.find("joints");
 
@@ -293,10 +273,10 @@ bool idyntree_yarp_tools::Visualizer::getOrGuessJointsAndBoards(const yarp::os::
         {
             if (model.getJoint(i)->getNrOfDOFs() == 1)
             {
-                m_jointList.push_back(model.getJointName(i)); //automatically select all the joint in the model that have 1DOF
+                m_basicInfo->jointList.push_back(model.getJointName(i)); //automatically select all the joint in the model that have 1DOF
             }
         }
-        if (m_jointList.size() != model.getNrOfPosCoords())
+        if (m_basicInfo->jointList.size() != model.getNrOfPosCoords())
         {
             yError() << "The model contains joints with more than 1DOF. This is not yet supported.";
             return false;
@@ -320,47 +300,33 @@ bool idyntree_yarp_tools::Visualizer::getOrGuessJointsAndBoards(const yarp::os::
                 yError() << "The value in position " << i << " (0-based) of joints is not a string.";
                 return false;
             }
-            m_jointList.push_back(jvalue.asString());
+            m_basicInfo->jointList.push_back(jvalue.asString());
         }
     }
 
-
-    m_controlBoards.clear();
-    yarp::os::Value controlBoardsValue = inputConf.find("controlboards");
-
-    if (controlBoardsValue.isNull())
-    {
-        m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"}; //assumes these as controlboards
-    }
-    else
-    {
-        if (!controlBoardsValue.isList())
-        {
-            yError() << "controlBoards is specified, but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* controlBoardsList = controlBoardsValue.asList();
-
-        for (size_t i = 0; i < controlBoardsList->size(); ++i)
-        {
-            yarp::os::Value cbValue = controlBoardsList->get(i);
-            if (!cbValue.isString())
-            {
-                yError() << "The value in position " << i << " (0-based) of controlBoards is not a string.";
-                return false;
-            }
-            m_controlBoards.push_back(cbValue.asString());
-        }
-    }
+    m_joints.resize(m_basicInfo->jointList.size());
+    m_joints.zero();
 
     return true;
 
 }
 
+void idyntree_yarp_tools::Visualizer::updateJointValues()
+{
+    if (m_connectedToTheRobot)
+    {
+        if (m_connectionType == ConnectionType::REMAPPER)
+        {
+            m_remapperConnector.getJointValues(m_joints);
+        }
+    }
+}
+
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+
+    m_basicInfo = std::make_shared<BasicInfo>();
 
     // Listen to signals for closing in a clean way the application
     idyntree_yarp_tools::handleSignals([this](){this->closeSignalHandler();});
@@ -380,26 +346,29 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         return false;
     }
 
-    m_name = rf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
-    m_robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
-
     std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
 
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
     m_modelLoader.loadModelFromFile(pathToModel);
 
-    if (!getOrGuessJointsAndBoards(rf, m_modelLoader.model()))
+    if (!getOrGuessBasicInfo(rf, m_modelLoader.model()))
     {
         yError() << "Failed to retrieve the joints and the control boards.";
         return false;
     }
 
-    if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_jointList))
+    std::string localName;
     {
-        yError() << "Failed to get reduced model.";
-        return false;
-    }
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
 
+        if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_basicInfo->jointList))
+        {
+            yError() << "Failed to get reduced model.";
+            return false;
+        }
+
+        localName = m_basicInfo->name;
+    }
 
     iDynTree::VisualizerOptions vizOptions;
     m_maxVizFPS = 65;  //default value
@@ -437,7 +406,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
     if (!m_offline)
     {
-        std::string rpcPortName = "/" + m_name + "/rpc";
+        std::string rpcPortName = "/" + localName + "/rpc";
         this->yarp().attachAsServer(this->m_rpcPort);
         if(!m_rpcPort.open(rpcPortName))
         {
@@ -460,7 +429,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
             std::string streamPortName = streamGroup.check("portName", yarp::os::Value("image")).asString();
 
-            std::string streamPortNameFull = "/" + m_name + "/" + streamPortName;
+            std::string streamPortNameFull = "/" + localName + "/" + streamPortName;
             if (!m_imagePort.open(streamPortNameFull))
             {
                 yError() << "Failed to open port " << streamPortNameFull;
@@ -507,6 +476,12 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         }
     }
 
+    if (!m_remapperConnector.configure(rf, m_basicInfo))
+    {
+        yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
+        return false;
+    }
+
     bool autoconnectSpecified = rf.check("autoconnect"); //Check if autoconnect has been explicitly set
     bool autoconnectSpecifiedValue = true;
     if (rf.check("autoconnect")) //autoconnect is present
@@ -548,9 +523,6 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_minimumMicroSecViz = std::round(1e6 / (double) m_maxVizFPS);
 
     m_wHb = iDynTree::Transform::Identity();
-    m_joints.resize(m_jointList.size());
-    m_jointsInDeg.resize(m_jointList.size());
-    m_joints.zero();
 
     return true;
 }
@@ -642,15 +614,7 @@ bool idyntree_yarp_tools::Visualizer::update()
         return true;
     }
 
-    if (m_connectedToTheRobot)
-    {
-        m_encodersInterface->getEncoders(m_jointsInDeg.data());
-
-        for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
-        {
-            m_joints(i) = iDynTree::deg2rad(m_jointsInDeg(i));
-        }
-    }
+    updateJointValues();
 
     m_viz.modelViz("robot").setPositions(m_wHb, m_joints);
 
@@ -702,7 +666,7 @@ void idyntree_yarp_tools::Visualizer::close()
     m_image.resize(0,0);
     m_imagePort.close();
     m_rpcPort.close();
-    m_robotDevice.close();
+    m_remapperConnector.close();
 }
 
 void idyntree_yarp_tools::Visualizer::closeSignalHandler()

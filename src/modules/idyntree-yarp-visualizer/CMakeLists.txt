@@ -1,7 +1,9 @@
 set(MODULE_NAME idyntree-yarp-visualizer)
 
-set (HDR Visualizer.h)
-set (SRC main.cpp Visualizer.cpp)
+set (HDR Visualizer.h
+         RobotConnectors.h)
+set (SRC main.cpp Visualizer.cpp
+                  RobotConnectors.cpp)
 set (THRIFTS thrifts/VisualizerCommands.thrift)
 
 yarp_add_idl(THRIFT_GEN_FILES ${THRIFTS})
