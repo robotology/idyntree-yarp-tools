@@ -83,6 +83,8 @@ public:
 
     // time is in ms
     void getEstFrequency(int &ite, double &av, double &min, double &max);
+
+    bool getJointPositionSize(int& size);
 };
 
 #endif // YARP_DEV_REMOTECONTROLBOARD_STATEEXTENDEDREADER_H
