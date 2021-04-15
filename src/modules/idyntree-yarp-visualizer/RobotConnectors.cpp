@@ -200,16 +200,56 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 
     if (cbJointList->size() %2 != 0)
     {
-        yError() << "The list provided after connectToStateExt is supposed to have an even number of elements. It is supposed to be a sequence of a string (the name of the control board), followed by the list of joints in the control board.";
+        yError() << "The list provided after connectToStateExt is supposed to have an even number of elements."
+                 << "It is supposed to be a sequence of a list containing the name of the control board (and eventuually the number of joints to consider),"
+                     "followed by the full list of joints in the control board.";
         return false;
     }
 
     for (size_t i = 0; i < cbJointList->size(); i += 2)
     {
+        m_cb_jointsMap.emplace_back();
+        m_cb_jointsMap.back().jointsToConsider = -1;
+        std::vector<JointInfo>& jointVector = m_cb_jointsMap.back().joints;
+
         yarp::os::Value& cbName = cbJointList->get(i);
-        if (!cbName.isString())
+        if (cbName.isString())
         {
-            yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is supposed to be a string, namely the name of the control board.";
+            m_cb_jointsMap.back().name = cbName.asString();
+
+        }
+        else if (cbName.isList())
+        {
+            yarp::os::Bottle* cbNameList = cbName.asList();
+            if (cbNameList->size() != 2 && cbNameList->size() != 1)
+            {
+                yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is a malformed list. It is supposed to be one or two dimensional,"
+                            " containing the name of the board and, optionally the number of considered joints";
+                return false;
+            }
+
+            if (!cbNameList->get(0).isString())
+            {
+                yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is a malformed list. The first element is supposed to be a string containing the name of the control board.";
+                return false;
+            }
+
+            m_cb_jointsMap.back().name = cbNameList->get(0).asString();
+
+            if (cbNameList->size() == 2)
+            {
+                if (!cbNameList->get(1).isInt())
+                {
+                    yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is a malformed list. The second element is supposed to be int defining the number of considered joints.";
+                    return false;
+                }
+
+                m_cb_jointsMap.back().jointsToConsider = cbNameList->get(1).asInt();
+            }
+        }
+        else
+        {
+            yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is supposed to be a string or a list, containing the name of the board and, optionally the number of considered joints.";
             return false;
         }
 
@@ -219,10 +259,6 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
             yError() << "The element in position" << i+1 << "(0-based) of the connectToStateExt list is supposed to be a list, namely the list of joints of the specific control board.";
             return false;
         }
-
-        m_cb_jointsMap.push_back(std::make_pair(cbName.asString(), std::vector<JointInfo>()));
-
-        std::vector<JointInfo>& jointVector = m_cb_jointsMap.back().second;
 
         yarp::os::Bottle* jointList = jointListValue.asList();
 
@@ -241,7 +277,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
                 if (jointBottle->size() != 2)
                 {
                     yError() << "The element at position" << j << "(0-based) of the control board"
-                             << m_cb_jointsMap.back().first << "is malformed. It has"
+                             << m_cb_jointsMap.back().name << "is malformed. It has"
                              << jointBottle->size() << "but it is supposed to have 2.";
                     return false;
                 }
@@ -251,7 +287,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
                 if (!jointNameValue.isString())
                 {
                     yError() << "The element at position" << j << "(0-based) of the control board"
-                             << m_cb_jointsMap.back().first << "is malformed."
+                             << m_cb_jointsMap.back().name << "is malformed."
                              << "The first element is supposed to be the name of the joint, but it is not a string.";
                     return false;
                 }
@@ -261,7 +297,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
                 if (!joinTypeValue.isString())
                 {
                     yError() << "The element at position" << j << "(0-based) of the control board"
-                             << m_cb_jointsMap.back().first << "is malformed."
+                             << m_cb_jointsMap.back().name << "is malformed."
                              << "The second element is supposed to be the type of the joint, but it is not a string.";
                     return false;
                 }
@@ -284,7 +320,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
                 else
                 {
                     yError() << "The element at position" << j << "(0-based) of the control board"
-                             << m_cb_jointsMap.back().first << "is malformed."
+                             << m_cb_jointsMap.back().name << "is malformed."
                              << "The second element is supposed to be the type of the joint, but the value"
                              << joinTypeValue.asString() << "is not recognized. Supported values are \"p\" or \"prismatic\""
                              << "for prismatic joints, and \"r\" and \"revolute\" for revolute joints.";
@@ -296,12 +332,20 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
             else
             {
                 yError() << "The element at position" << j <<"(0-based) of the control board"
-                         << m_cb_jointsMap.back().first << "is malformed."
+                         << m_cb_jointsMap.back().name << "is malformed."
                          <<"It is supposed to be either a string or a list of two elements (the joint name and the joint type).";
                 return false;
             }
 
-            jointNamesVector.push_back(jointVector.back().name);
+            if ((m_cb_jointsMap.back().jointsToConsider < 0) || (static_cast<int>(j) < m_cb_jointsMap.back().jointsToConsider))
+            {
+                jointNamesVector.push_back(jointVector.back().name);
+            }
+        }
+
+        if (m_cb_jointsMap.back().jointsToConsider < 0)
+        {
+            m_cb_jointsMap.back().jointsToConsider = m_cb_jointsMap.back().joints.size();
         }
 
     }
@@ -355,13 +399,13 @@ bool StateExtConnector::connectToRobot()
 
             yarp::os::Property stateExtCbOptions;
             stateExtCbOptions.put("device", "readonlyremotecontrolboard");
-            stateExtCbOptions.put("remote", "/" + localRobotName + "/" + m_cb_jointsMap[i].first);
-            stateExtCbOptions.put("local", "/" + localName + "/" + m_cb_jointsMap[i].first);
+            stateExtCbOptions.put("remote", "/" + localRobotName + "/" + m_cb_jointsMap[i].name);
+            stateExtCbOptions.put("local", "/" + localName + "/" + m_cb_jointsMap[i].name);
             stateExtCbOptions.put("carrier", "tcp");
 
             yarp::os::Bottle axesNames;
             yarp::os::Bottle & axesList = axesNames.addList();
-            for (auto& joint : m_cb_jointsMap[i].second)
+            for (auto& joint : m_cb_jointsMap[i].joints)
             {
                 yarp::os::Bottle& axis = axesList.addList();
                 axis.addString(joint.name);
@@ -384,18 +428,20 @@ bool StateExtConnector::connectToRobot()
 
             if (!m_encodersInterfaces[i].device->open(stateExtCbOptions))
             {
-                yError() << "Failed to open readonlyremotecontrolboard device for the" << m_cb_jointsMap[i].first << "control board.";
+                yError() << "Failed to open readonlyremotecontrolboard device for the" << m_cb_jointsMap[i].name << "control board.";
                 return false;
             }
 
             if (!m_encodersInterfaces[i].device->view(m_encodersInterfaces[i].encoders))
             {
-                yError() << "Failed to view encoder interface for the" << m_cb_jointsMap[i].first << "control board.";
+                yError() << "Failed to view encoder interface for the" << m_cb_jointsMap[i].name << "control board.";
                 return false;
             }
 
-            m_encodersInterfaces[i].jointsBuffer.resize(m_cb_jointsMap[i].second.size());
+            m_encodersInterfaces[i].jointsBuffer.resize(m_cb_jointsMap[i].joints.size());
             m_encodersInterfaces[i].jointsBuffer.zero();
+
+            m_encodersInterfaces[i].jointsToConsider = m_cb_jointsMap[i].jointsToConsider;
         }
     }
 
@@ -422,7 +468,7 @@ bool StateExtConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
             {
                 if (numberOfJoints != static_cast<int>(m_encodersInterfaces[cb].jointsBuffer.size()))
                 {
-                    yError() << "The number of joints for the control board" << m_cb_jointsMap[cb].first
+                    yError() << "The number of joints for the control board" << m_cb_jointsMap[cb].name
                              << "appears to be" << numberOfJoints << "while it has been configured with"
                              << m_encodersInterfaces[cb].jointsBuffer.size() << "joints. Closing the connection.";
                     shouldClose = true;
@@ -431,7 +477,7 @@ bool StateExtConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
 
                 if (m_encodersInterfaces[cb].encoders->getEncoders(m_encodersInterfaces[cb].jointsBuffer.data()))
                 {
-                    for (size_t i = 0; i < m_encodersInterfaces[cb].jointsBuffer.size(); ++i)
+                    for (size_t i = 0; i < m_encodersInterfaces[cb].jointsToConsider; ++i)
                     {
                         jointValuesInRad(currentPosition) = iDynTree::deg2rad(m_encodersInterfaces[cb].jointsBuffer(i));
                         currentPosition++;

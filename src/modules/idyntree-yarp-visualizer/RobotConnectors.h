@@ -67,16 +67,24 @@ class StateExtConnector
         JointType type;
     };
 
+    struct ControlBoardInfo
+    {
+        std::string name;
+        int jointsToConsider;
+        std::vector<JointInfo> joints;
+    };
+
     struct EncodersInterface
     {
         yarp::dev::PolyDriver* device;
         yarp::dev::IEncodersTimed* encoders{nullptr};
         iDynTree::VectorDynSize jointsBuffer;
+        size_t jointsToConsider;
 
         ~EncodersInterface();
     };
 
-    std::vector<std::pair<std::string, std::vector<JointInfo>>> m_cb_jointsMap;
+    std::vector<ControlBoardInfo> m_cb_jointsMap;
     std::vector<EncodersInterface> m_encodersInterfaces;
     std::atomic<bool> m_connected{false};
     std::shared_ptr<BasicInfo> m_basicInfo;
