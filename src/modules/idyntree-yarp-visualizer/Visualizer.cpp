@@ -343,6 +343,14 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
     {
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        std::stringstream jointListInfo;
+        jointListInfo << "Using the following joints for visualization:" << std::endl;
+        for (const std::string& joint : m_basicInfo->jointList)
+        {
+            jointListInfo << "    - " << joint <<std::endl;
+        }
+
+        yInfo() << jointListInfo.str();
 
         if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_basicInfo->jointList)) //The connectors take care of setting the joint list
         {
