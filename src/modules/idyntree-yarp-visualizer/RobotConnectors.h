@@ -55,7 +55,19 @@ public:
 
 class StateExtConnector
 {
-    std::map<std::string, std::vector<std::string>> m_cb_jointsMap;
+    enum class JointType
+    {
+        REVOLUTE,
+        PRISMATIC
+    };
+
+    struct JointInfo
+    {
+        std::string name;
+        JointType type;
+    };
+
+    std::vector<std::pair<std::string, std::vector<JointInfo>>> m_cb_jointsMap;
     yarp::dev::PolyDriver m_robotDevice;
     yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
     std::atomic<bool> m_connected{false};

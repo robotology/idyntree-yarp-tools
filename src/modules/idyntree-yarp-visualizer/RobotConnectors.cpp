@@ -1,6 +1,8 @@
 #include <yarp/os/LogStream.h>
 #include <iDynTree/Core/Utils.h>
 #include "RobotConnectors.h"
+#include <algorithm>
+
 
 namespace idyntree_yarp_tools {
 
@@ -92,10 +94,8 @@ bool RemapperConnector::getJointNamesFromModel(const yarp::os::Searchable &input
 bool RemapperConnector::configure(const yarp::os::Searchable &inputConf, const iDynTree::Model &fullModel, std::shared_ptr<BasicInfo> basicInfo)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    {
-        std::lock_guard<std::mutex>(basicInfo->mutex);
-        m_basicInfo = basicInfo;
-    }
+
+    m_basicInfo = basicInfo;
 
     if (!getOrGuessControlBoardsFromFile(inputConf))
     {
@@ -185,6 +185,7 @@ void RemapperConnector::close()
 bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 {
     m_cb_jointsMap.clear();
+    std::vector<std::string> jointNamesVector;
 
     if (!inputValue.isList())
     {
@@ -209,17 +210,102 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
             return false;
         }
 
-        yarp::os::Value& jointList = cbJointList->get(i+1);
-        if (!jointList.isList())
+        yarp::os::Value& jointListValue = cbJointList->get(i+1);
+        if (!jointListValue.isList())
         {
             yError() << "The element in position " << i+1 << " (0-based) of the connectToStateExt list is supposed to be a list, namely the list of joints of the specific control board.";
             return false;
         }
 
-        std::vector<std::string>& jointVector = m_cb_jointsMap[cbName.asString()];
+        m_cb_jointsMap.push_back(std::make_pair(cbName.asString(), std::vector<JointInfo>()));
 
+        std::vector<JointInfo>& jointVector = m_cb_jointsMap.back().second;
 
+        yarp::os::Bottle* jointList = jointListValue.asList();
 
+        for (size_t j = 0; j < jointList->size(); ++j)
+        {
+            yarp::os::Value& jointValue = jointList->get(j);
+
+            if (jointValue.isString())
+            {
+                jointVector.push_back({jointValue.asString(), JointType::REVOLUTE});
+            }
+            else if (jointValue.isList())
+            {
+                yarp::os::Bottle* jointBottle = jointValue.asList();
+
+                if (jointBottle->size() != 2)
+                {
+                    yError() << "The element at position " << j << " (0-based) of the control board \""
+                             << m_cb_jointsMap.back().first << "\" is malformed. It has "
+                             << jointBottle->size() << ", but it is supposed to have 2.";
+                    return false;
+                }
+
+                yarp::os::Value& jointNameValue = jointBottle->get(0);
+
+                if (!jointNameValue.isString())
+                {
+                    yError() << "The element at position " << j << " (0-based) of the control board \""
+                             << m_cb_jointsMap.back().first << "\" is malformed."
+                             << " The first element is supposed to be the name of the joint, but it is not a string.";
+                    return false;
+                }
+
+                yarp::os::Value& joinTypeValue = jointBottle->get(1);
+
+                if (!joinTypeValue.isString())
+                {
+                    yError() << "The element at position " << j << " (0-based) of the control board \""
+                             << m_cb_jointsMap.back().first << "\" is malformed."
+                             << " The second element is supposed to be the type of the joint, but it is not a string.";
+                    return false;
+                }
+
+                JointInfo newJoint;
+                newJoint.name = joinTypeValue.asString();
+
+                std::string jointTypeString = joinTypeValue.asString();
+                std::transform(jointTypeString.begin(), jointTypeString.end(), jointTypeString.begin(),
+                    [](unsigned char c){ return std::tolower(c); }); //set to lowercase
+
+                if (jointTypeString == "p" || jointTypeString == "prismatic")
+                {
+                    newJoint.type = JointType::PRISMATIC;
+                }
+                else if (jointTypeString == "r" || jointTypeString == "revolute")
+                {
+                    newJoint.type = JointType::REVOLUTE;
+                }
+                else
+                {
+                    yError() << "The element at position " << j << " (0-based) of the control board \""
+                             << m_cb_jointsMap.back().first << "\" is malformed."
+                             << " The second element is supposed to be the type of the joint, but the value "
+                             << joinTypeValue.asString() << " is not recognized. Supported values are \"p\" or \"prismatic\" "
+                             << "for prismatic joints, and \"r\" and \"revolute\" for revolute joints.";
+                    return false;
+                }
+
+                jointVector.push_back(newJoint);
+            }
+            else
+            {
+                yError() << "The element at position " << j << " (0-based) of the control board \""
+                         << m_cb_jointsMap.back().first << "\" is malformed."
+                         <<" It is supposed to be either a string or a list of two elements (the joint name and the joint type).";
+                return false;
+            }
+
+            jointNamesVector.push_back(jointVector.back().name);
+        }
+
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        m_basicInfo->jointList = jointNamesVector;
     }
 
     return true;
@@ -227,6 +313,15 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 
 bool StateExtConnector::configure(const yarp::os::Searchable &inputConf, std::shared_ptr<BasicInfo> basicInfo)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    m_basicInfo = basicInfo;
+
+    if (!getAxesDescription(inputConf.find("connectToStateExt")))
+    {
+        yError() << "Failed to read the connectToStateExt parameter.";
+        return false;
+    }
 
     return true;
 }
@@ -238,6 +333,8 @@ bool StateExtConnector::usingStateExt(const yarp::os::Searchable &inputConf)
 
 bool StateExtConnector::connectToRobot()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     return true;
 }
 
