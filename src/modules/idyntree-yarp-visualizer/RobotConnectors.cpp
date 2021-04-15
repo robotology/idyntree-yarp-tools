@@ -203,7 +203,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
     if (cbJointList->size() %2 != 0)
     {
         yError() << "The list provided after connectToStateExt is supposed to have an even number of elements."
-                 << "It is supposed to be a sequence of a list containing the name of the control board (and eventuually the number of joints to consider),"
+                 << "It needs to be a sequence of a list containing the name of the control board (and eventuually the number of joints to consider),"
                      "followed by the full list of joints in the control board.";
         return false;
     }

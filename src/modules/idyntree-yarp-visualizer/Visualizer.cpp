@@ -520,34 +520,54 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
     {
         std::cout << "Usage: idyntree-yarp-visualizer" << std::endl
                   << "Optional arguments:" << std::endl
-                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl
-                  << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl
-                  << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl
-                  << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl
+                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl << std::endl
+                  << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl << std::endl
+                  << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl << std::endl
+                  << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl << std::endl
                   << "--autoconnect [true|false]                         If set to true, or no value is provided, it will try to connect to the robot automatically at startup." << std::endl
-                  << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl
-                  << "--controlboards \"(<cb1>, ...)\"                     The set of control boards to connect to. Default: \"(head, torso, left_arm, right_arm, left_leg, right_leg)\";" << std::endl
+                  << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl << std::endl
+                  << "--controlboards \"(<cb1>, ...)\"                     The set of control boards to connect to. Default: \"(head, torso, left_arm, right_arm, left_leg, right_leg)\";" << std::endl << std::endl
                   << "--joints \"(<j1>, ...)\"                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
-                  << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl
-                  << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl
-                  << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl
-                  << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl
-                  << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl
-                  << "--backgroundColor \"(r, g, b)\"                      Visualizer background color. Default \"(0.0, 0.4, 0.4)\";" << std::endl
-                  << "--floorGridColor \"(r, g, b)\"                       Visualizer floor grid color. Default \"(0.0, 0.0, 1.0)\";" << std::endl
-                  << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl
-                  << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl
-                  << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl
-                  << " The following optional arguments are used only if the streaming of the image is enabled (see --streamImage):" << std::endl
-                  << "--OUTPUT_STREAM::portName <name>                   The suffix of the port where the stream the image. Default \"image\";" <<std::endl
-                  << "--OUTPUT_STREAM::imageWidth <width>                The width of the image streamed on the port. Default 400;" <<std::endl
-                  << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl
-                  << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl
-                  << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b)\"       Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0)\";" << std::endl
-                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b)\"        Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl << std::endl
+                  << "--connectToStateExt \"(<cb1>, (<j1>, ...), ..)\"     With this command, it is possible to connect to the stateExt ports opened by the robot. This allows to visualize also data" << std::endl
+                  << "                                                   saved through the yarpdatatdumper for example. The stateExt ports contain only joint values, without any other information," << std::endl
+                  << "                                                   hence, it is necessary to explicitly list all the joints of the selected control boards in their correct order. " << std::endl
+                  << "                                                   The list provided after connectToStateExt is supposed to have an even number of elements." << std::endl
+                  << "                                                   It needs to be a sequence of a list containing the name of the control board (and eventually the number of joints to consider)," << std::endl
+                  << "                                                   followed by the full list of joints in the control board. Each joint entry can also be a list. In this case," << std::endl
+                  << "                                                   the first element is the joint name, the second is a keyword for the " << std::endl
+                  << "                                                   joint type (\"p\" or \"prismatic\" for prismatic joints, \"r\" or \"revolute\" for revolute joints)." << std::endl
+                  << "                                                   If a joint name is specified without being a list, then it is assumed to be a revolute joint."  << std::endl
+                  << "                                                   For example, suppose you want to connect to the neck and the torso, the syntax would be:"  << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, neck_roll, neck_yaw), torso, (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   If, for example, neck_roll is a prismatic joint, the syntax would be:" << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, (neck_roll, p), neck_yaw), torso, (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   In some case, it might be useful to consider only the first n joints of a control board (for example to avoid considering the hand joints)." << std::endl
+                  << "                                                   It is still necessary to specify all the joints, but only the first n will be used for the visualization." << std::endl
+                  << "                                                   For example, if you want to avoid considering the torso_yaw in the visualization, use the following notation:" << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, (neck_roll, p), neck_yaw), (torso, 2), (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   In case --robot is \"icub\" or \"icubSim\" it is possible to use the following simplified syntax to connect to all the supported joints:" << std::endl
+                  << "                                                   --connectToStateExt default" << std::endl
+                  << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored." << std::endl << std::endl
+                  << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl << std::endl
+                  << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl << std::endl
+                  << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl << std::endl
+                  << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl << std::endl
+                  << "--backgroundColor \"(r, g, b)\"                      Visualizer background color. Default \"(0.0, 0.4, 0.4)\";" << std::endl << std::endl
+                  << "--floorGridColor \"(r, g, b)\"                       Visualizer floor grid color. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl << std::endl
+                  << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl << std::endl
+                  << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl << std::endl
+                  << " The following optional arguments are used only if the streaming of the image is enabled (see --streamImage):" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::portName <name>                   The suffix of the port where the stream the image. Default \"image\";" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::imageWidth <width>                The width of the image streamed on the port. Default 400;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b)\"       Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0)\";" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b)\"        Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl << std::endl
                   << "All these options can be added to a .ini file. If you use the following argument:" << std::endl
                   << "--from </path/file>.ini                            Example of .ini file:" << std::endl
                   << "                                                   #--------------------"<< std::endl
@@ -559,7 +579,7 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   floorGridColor (1.0, 0.0, 0.0)" << std::endl
                   << "                                                   #--------------------" <<std::endl
                   << "                                                   Note that all the -- have been removed, while the prefix OUTPUT_STREAM::" <<std::endl
-                  << "                                                   is no more necessary after the [OUTPUT_STREAM] tag." <<std::endl;
+                  << "                                                   is no more necessary after the [OUTPUT_STREAM] tag." <<std::endl << std::endl;
 
         return true;
     }
