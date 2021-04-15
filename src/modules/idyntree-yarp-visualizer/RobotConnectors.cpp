@@ -4,6 +4,8 @@
 #include "RobotConnectors.h"
 #include <algorithm>
 
+YARP_DECLARE_PLUGINS(ReadOnlyRemoteControlBoardLib);
+
 namespace idyntree_yarp_tools {
 
 bool RemapperConnector::getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf)
@@ -383,6 +385,8 @@ bool StateExtConnector::connectToRobot()
     m_connected = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+
+        YARP_REGISTER_PLUGINS(ReadOnlyRemoteControlBoardLib);
 
         std::string localRobotName, localName;
         {
