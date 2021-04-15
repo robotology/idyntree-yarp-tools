@@ -67,7 +67,8 @@ find_package(Eigen3 REQUIRED)
 
 ### Options
 # Shared/Dynamic or Static library?
-option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" ON)
+# Setting BUILD_SHARED_LIBS to false by default to make sure that the ReadOnlyControlBoardPlugin is found also without installing.
+option(BUILD_SHARED_LIBS "Build libraries as shared as opposed to static" OFF)
 
 # Build test related commands?
 option(BUILD_TESTING "Create tests using CMake" OFF)
