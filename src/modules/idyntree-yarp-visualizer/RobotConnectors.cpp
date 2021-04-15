@@ -1,8 +1,8 @@
 #include <yarp/os/LogStream.h>
 #include <iDynTree/Core/Utils.h>
+#include <yarp/dev/IAxisInfo.h>
 #include "RobotConnectors.h"
 #include <algorithm>
-
 
 namespace idyntree_yarp_tools {
 
@@ -177,9 +177,12 @@ bool RemapperConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
 
 void RemapperConnector::close()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_robotDevice.close();
-    m_encodersInterface = nullptr;
+    m_connected = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_robotDevice.close();
+        m_encodersInterface = nullptr;
+    }
 }
 
 bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
@@ -333,33 +336,133 @@ bool StateExtConnector::usingStateExt(const yarp::os::Searchable &inputConf)
 
 bool StateExtConnector::connectToRobot()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
+    m_connected = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        std::string localRobotName, localName;
+        {
+            std::lock_guard<std::mutex> lockInfo(m_basicInfo->mutex);
+            localRobotName = m_basicInfo->robotPrefix;
+            localName = m_basicInfo->name;
+        }
+
+        m_encodersInterfaces.clear();
+        m_encodersInterfaces.resize(m_cb_jointsMap.size());
+
+        for (size_t i = 0; i < m_cb_jointsMap.size(); ++i)
+        {
+
+            yarp::os::Property stateExtCbOptions;
+            stateExtCbOptions.put("device", "readonlyremotecontrolboard");
+            stateExtCbOptions.put("remote", "/" + localRobotName + "/" + m_cb_jointsMap[i].first);
+            stateExtCbOptions.put("local", "/" + localName + "/" + m_cb_jointsMap[i].first);
+            stateExtCbOptions.put("carrier", "tcp");
+
+            yarp::os::Bottle axesNames;
+            yarp::os::Bottle & axesList = axesNames.addList();
+            for (auto& joint : m_cb_jointsMap[i].second)
+            {
+                yarp::os::Bottle& axis = axesList.addList();
+                axis.addString(joint.name);
+
+                switch (joint.type)
+                {
+                case JointType::PRISMATIC:
+                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_PRISMATIC);
+                    break;
+
+                case JointType::REVOLUTE:
+                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_REVOLUTE);
+                    break;
+                }
+
+            }
+            stateExtCbOptions.put("axesDescription",axesNames.get(0));
+
+            m_encodersInterfaces[i].device = new yarp::dev::PolyDriver();
+
+            if (!m_encodersInterfaces[i].device->open(stateExtCbOptions))
+            {
+                yError() << "Failed to open readonlyremotecontrolboard device for the " << m_cb_jointsMap[i].first << " control board.";
+                return false;
+            }
+
+            if (!m_encodersInterfaces[i].device->view(m_encodersInterfaces[i].encoders))
+            {
+                yError() << "Failed to view encoder interface for the " << m_cb_jointsMap[i].first << " control board.";
+                return false;
+            }
+
+            m_encodersInterfaces[i].jointsBuffer.resize(m_cb_jointsMap[i].second.size());
+            m_encodersInterfaces[i].jointsBuffer.zero();
+        }
+    }
+
+    m_connected = true;
 
     return true;
 }
 
 bool StateExtConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad)
 {
+    bool shouldClose = false;;
+
     if (m_connected)
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        if (m_encodersInterface->getEncoders(m_jointsInDeg.data()))
+        size_t currentPosition = 0;
+
+        for (size_t cb = 0; cb < m_encodersInterfaces.size(); ++cb)
         {
-            for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
+            int numberOfJoints = 0;
+
+            if (m_encodersInterfaces[cb].encoders->getAxes(&numberOfJoints))
             {
-                jointValuesInRad(i) = iDynTree::deg2rad(m_jointsInDeg(i));
+                if (numberOfJoints != static_cast<int>(m_encodersInterfaces[cb].jointsBuffer.size()))
+                {
+                    yError() << "The number of joints for the control board " << m_cb_jointsMap[cb].first
+                             << " appears to be " << numberOfJoints << ", while it has been configured with "
+                             << m_encodersInterfaces[cb].jointsBuffer.size() << " joints. Closing the connection.";
+                    shouldClose = true;
+                    break;
+                }
+
+                if (m_encodersInterfaces[cb].encoders->getEncoders(m_encodersInterfaces[cb].jointsBuffer.data()))
+                {
+                    for (size_t i = 0; i < m_encodersInterfaces[cb].jointsBuffer.size(); ++i)
+                    {
+                        jointValuesInRad(currentPosition) = iDynTree::deg2rad(m_encodersInterfaces[cb].jointsBuffer(i));
+                        currentPosition++;
+                    }
+                }
             }
         }
+        assert(currentPosition == jointValuesInRad.size());
     }
+
+    if (shouldClose)
+    {
+        close(); //It is important to do this after unlocking the mutex to avoid deadlocks.
+    }
+
     return true;
 }
 
 void StateExtConnector::close()
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_robotDevice.close();
-    m_encodersInterface = nullptr;
+    m_connected = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_encodersInterfaces.clear();
+    }
+}
+
+StateExtConnector::EncodersInterface::~EncodersInterface()
+{
+    device->close();
+    delete device;
 }
 
 }

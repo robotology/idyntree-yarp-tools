@@ -67,11 +67,18 @@ class StateExtConnector
         JointType type;
     };
 
+    struct EncodersInterface
+    {
+        yarp::dev::PolyDriver* device;
+        yarp::dev::IEncodersTimed* encoders{nullptr};
+        iDynTree::VectorDynSize jointsBuffer;
+
+        ~EncodersInterface();
+    };
+
     std::vector<std::pair<std::string, std::vector<JointInfo>>> m_cb_jointsMap;
-    yarp::dev::PolyDriver m_robotDevice;
-    yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
+    std::vector<EncodersInterface> m_encodersInterfaces;
     std::atomic<bool> m_connected{false};
-    iDynTree::VectorDynSize m_jointsInDeg;
     std::shared_ptr<BasicInfo> m_basicInfo;
     std::mutex m_mutex;
 

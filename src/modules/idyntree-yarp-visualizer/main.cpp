@@ -9,9 +9,12 @@
      */
 
 #include "Visualizer.h"
+YARP_DECLARE_PLUGINS(ReadOnlyRemoteControlBoardLib);
+
 
 int main(int argc, char * argv[])
 {
+    YARP_REGISTER_PLUGINS(ReadOnlyRemoteControlBoardLib);
 
     yarp::os::Network yarp; //to initialize the network
 
