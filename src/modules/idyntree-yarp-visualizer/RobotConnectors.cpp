@@ -366,7 +366,45 @@ bool StateExtConnector::configure(const yarp::os::Searchable &inputConf, std::sh
 
     m_basicInfo = basicInfo;
 
-    if (!getAxesDescription(inputConf.find("connectToStateExt")))
+    yarp::os::Value confValue = inputConf.find("connectToStateExt");
+
+    if (confValue.isString() && confValue.asString() == "default")
+    {
+        std::string robotLocalName;
+        {
+            std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+
+            robotLocalName = m_basicInfo->robotPrefix;
+        }
+
+        if (robotLocalName == "icubSim")
+        {
+            confValue.fromString("(head, (neck_pitch, neck_roll, neck_yaw),"
+                                 " torso, (torso_yaw, torso_pitch, torso_roll),"
+                                 " left_arm, (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw),"
+                                 " right_arm, (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw),"
+                                 " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
+                                 " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))");
+        }
+        else if (robotLocalName == "icub")
+        {
+            confValue.fromString("(head, (neck_pitch, neck_roll, neck_yaw),"
+                                 " torso, (torso_yaw, torso_pitch, torso_roll),"
+                                 " (left_arm, 7), (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw,"
+                                                  "l_thumb_oppose, l_thumb_proximal, l_thumb_distal, l_index_proximal, l_index-distal, l_middle-proximal, l_middle-distal, l_little-fingers),"
+                                 " (right_arm, 7), (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw),"
+                                                   "r_thumb_oppose, r_thumb_proximal, r_thumb_distal, r_index_proximal, r_index-distal, r_middle-proximal, r_middle-distal, r_little-fingers),"
+                                 " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
+                                 " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))");
+        }
+        else
+        {
+            yError() << "No default connectToStateExt configuration for the robot" << robotLocalName;
+            return false;
+        }
+    }
+
+    if (!getAxesDescription(confValue))
     {
         yError() << "Failed to read the connectToStateExt parameter.";
         return false;
