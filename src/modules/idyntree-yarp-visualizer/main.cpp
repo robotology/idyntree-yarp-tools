@@ -31,6 +31,7 @@ int main(int argc, char * argv[])
 
     if (!viz.configure(rf))
     {
+        viz.close();
         return EXIT_FAILURE;
     }
 

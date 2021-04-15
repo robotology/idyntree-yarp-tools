@@ -518,15 +518,15 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl
                   << "--autoconnect [true|false]                         If set to true, or no value is provided, it will try to connect to the robot automatically at startup." << std::endl
                   << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl
-                  << "--controlboards <(\"cb1\", ...)>                     The set of control boards to connect to. Default: (\"head\", \"torso\", \"left_arm\", \"right_arm\", \"left_leg\", \"right_leg\");" << std::endl
-                  << "--joints <(\"j1\", ...)>                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
+                  << "--controlboards \"(<cb1>, ...)\"                     The set of control boards to connect to. Default: \"(head, torso, left_arm, right_arm, left_leg, right_leg)\";" << std::endl
+                  << "--joints \"(<j1>, ...)\"                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
                   << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl
-                  << "--cameraPosition <(px, py, pz)>                    Camera initial position. Default (0.8, 0.8, 0.8);" << std::endl
+                  << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl
                   << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl
                   << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl
                   << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl
-                  << "--backgroundColor <(r, g, b)>                      Visualizer background color. Default (0.0, 0.4, 0.4);" << std::endl
-                  << "--floorGridColor <(r, g, b)>                       Visualizer floor grid color. Default (0.0, 0.0, 1.0);" << std::endl
+                  << "--backgroundColor \"(r, g, b)\"                      Visualizer background color. Default \"(0.0, 0.4, 0.4)\";" << std::endl
+                  << "--floorGridColor \"(r, g, b)\"                       Visualizer floor grid color. Default \"(0.0, 0.0, 1.0)\";" << std::endl
                   << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl
                   << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl
                   << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl
@@ -538,8 +538,8 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl
                   << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl
                   << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::backgroundColor <(r, g, b)>       Set the background color of the streamed image. Default (0.0, 0.0, 0.0);" << std::endl
-                  << "--OUTPUT_STREAM::floorGridColor <(r, g, b)>        Set the floor grid color of the streamed image. Default (0.0, 0.0, 1.0);" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b)\"       Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0)\";" << std::endl
+                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b)\"        Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
                   << "All these options can be added to a .ini file. If you use the following argument:" << std::endl
                   << "--from </path/file>.ini                            Example of .ini file:" << std::endl
                   << "                                                   #--------------------"<< std::endl
@@ -548,6 +548,7 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   [OUTPUT_STREAM]" <<std::endl
                   << "                                                   portName    myPort" << std::endl
                   << "                                                   mirrorImage true" << std::endl
+                  << "                                                   floorGridColor (1.0, 0.0, 0.0)" << std::endl
                   << "                                                   #--------------------" <<std::endl
                   << "                                                   Note that all the -- have been removed, while the prefix OUTPUT_STREAM::" <<std::endl
                   << "                                                   is no more necessary after the [OUTPUT_STREAM] tag." <<std::endl;
