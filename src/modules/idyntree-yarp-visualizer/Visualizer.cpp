@@ -309,6 +309,13 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
 
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
+
+    if (pathToModel == "")
+    {
+        yError() << "Failed to find" << modelName;
+        return false;
+    }
+
     m_modelLoader.loadModelFromFile(pathToModel);
 
     std::string localName;
@@ -520,6 +527,7 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
     {
         std::cout << "Usage: idyntree-yarp-visualizer" << std::endl
                   << "Optional arguments:" << std::endl
+                  << "--help                                             Print this message;" << std::endl << std::endl
                   << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl << std::endl
                   << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl << std::endl
                   << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl << std::endl
@@ -548,7 +556,7 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   --connectToStateExt \"(head, (neck_pitch, (neck_roll, p), neck_yaw), (torso, 2), (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
                   << "                                                   In case --robot is \"icub\" or \"icubSim\" it is possible to use the following simplified syntax to connect to all the supported joints:" << std::endl
                   << "                                                   --connectToStateExt default" << std::endl
-                  << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored." << std::endl << std::endl
+                  << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored;" << std::endl << std::endl
                   << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl << std::endl
                   << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl << std::endl
                   << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl << std::endl

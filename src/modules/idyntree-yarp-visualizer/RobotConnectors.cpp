@@ -123,6 +123,7 @@ bool RemapperConnector::connectToRobot()
     std::lock_guard<std::mutex> lock(m_mutex);
     {
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        //First make sure to reset the device in case it was already opened.
         m_robotDevice.close();
         m_encodersInterface = nullptr;
 
