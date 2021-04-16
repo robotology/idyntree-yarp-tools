@@ -76,7 +76,7 @@ class StateExtConnector
 
     struct EncodersInterface
     {
-        yarp::dev::PolyDriver* device;
+        yarp::dev::PolyDriver* device{nullptr};
         yarp::dev::IEncodersTimed* encoders{nullptr};
         iDynTree::VectorDynSize jointsBuffer;
         size_t jointsToConsider;

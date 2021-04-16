@@ -670,7 +670,6 @@ void idyntree_yarp_tools::Visualizer::close()
     std::lock_guard<std::mutex> lock(m_mutex);
 
     m_viz.close();
-    m_image.resize(0,0);
     m_imagePort.close();
     m_rpcPort.close();
     m_remapperConnector.close();
