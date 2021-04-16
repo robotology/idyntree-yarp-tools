@@ -198,8 +198,10 @@ namespace dev {
     bool ReadOnlyRemoteControlBoard::getAxes(int *ax)
     {
         if (!ax) return false;
-        *ax = m_numberOfJoints;
-        return true;
+        m_extendedPortMutex.wait();
+        bool ret = m_extendedIntputStatePort.getJointPositionSize(*ax); //It is possible that the joint size provided in the configuration do not match what it is read from stateExt
+        m_extendedPortMutex.post();
+        return ret;
     }
 
     bool ReadOnlyRemoteControlBoard::getEncoder(int j, double *v)

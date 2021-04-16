@@ -8,15 +8,15 @@
 #include <yarp/os/Network.h>
 #include <yarp/os/LogStream.h>
 #include <yarp/os/ResourceFinder.h>
-#include <yarp/dev/PolyDriver.h>
-#include <yarp/dev/IEncodersTimed.h>
 #include <cmath>
 #include <chrono>
 #include <thread>
 #include <atomic>
-#include <Utilities.h>
 #include <mutex>
 #include <thrifts/VisualizerCommands.h>
+#include <string>
+#include <Utilities.h>
+#include "RobotConnectors.h"
 
 
 namespace idyntree_yarp_tools {
@@ -24,16 +24,13 @@ namespace idyntree_yarp_tools {
 class Visualizer : public VisualizerCommands
 {
 
-    std::string m_name;
+    enum class ConnectionType
+    {
+        REMAPPER,
+        STATE_EXT
+    };
 
-    std::vector<std::string> m_jointList;
-
-    std::vector<std::string> m_controlBoards;
-
-    yarp::dev::PolyDriver m_robotDevice;
-    yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
-
-    std::string m_robotPrefix;
+    std::shared_ptr<BasicInfo> m_basicInfo;
 
     iDynTree::ModelLoader m_modelLoader;
 
@@ -56,11 +53,14 @@ class Visualizer : public VisualizerCommands
 
     iDynTree::Transform m_wHb;
     iDynTree::VectorDynSize m_joints;
-    iDynTree::VectorDynSize m_jointsInDeg;
 
     std::atomic<bool> m_isClosing{false};
     std::atomic<bool> m_connectedToTheRobot{false};
     std::atomic<bool> m_offline{false};
+
+    std::atomic<ConnectionType> m_connectionType{ConnectionType::REMAPPER};
+    RemapperConnector m_remapperConnector;
+    StateExtConnector m_stateExtConnector;
 
     yarp::os::Port m_rpcPort;
 
@@ -74,9 +74,10 @@ class Visualizer : public VisualizerCommands
 
     bool setVizCameraFromConfig(const yarp::os::Searchable &inputConf, iDynTree::ICamera& camera);
 
-    bool getOrGuessJointsAndBoards(const yarp::os::Searchable &inputConf, const iDynTree::Model& model);
+    void updateJointValues();
 
 public:
+
     bool configure(const yarp::os::ResourceFinder& rf);
 
     bool neededHelp(const yarp::os::ResourceFinder& rf);

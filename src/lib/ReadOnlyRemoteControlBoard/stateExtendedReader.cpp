@@ -325,3 +325,11 @@ void StateExtendedInputPort::getEstFrequency(int &ite, double &av, double &min, 
     av=av*1000;
     mutex.unlock();
 }
+
+bool StateExtendedInputPort::getJointPositionSize(int &size)
+{
+    mutex.lock();
+    size = last.jointPosition.size();
+    mutex.unlock();
+    return true;
+}

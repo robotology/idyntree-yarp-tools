@@ -10,9 +10,9 @@
 
 #include "Visualizer.h"
 
+
 int main(int argc, char * argv[])
 {
-
     yarp::os::Network yarp; //to initialize the network
 
     yarp::os::ResourceFinder& rf = yarp::os::ResourceFinder::getResourceFinderSingleton();
@@ -28,6 +28,7 @@ int main(int argc, char * argv[])
 
     if (!viz.configure(rf))
     {
+        viz.close();
         return EXIT_FAILURE;
     }
 

@@ -5,38 +5,22 @@ using namespace std::chrono_literals;
 bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
 {
     m_connectedToTheRobot = false;
-    m_robotDevice.close();
-    m_encodersInterface = nullptr;
 
-    yarp::os::Property remapperOptions;
-    remapperOptions.put("device", "remotecontrolboardremapper");
-    yarp::os::Bottle axesNames;
-    yarp::os::Bottle & axesList = axesNames.addList();
-    for (auto& joint : m_jointList)
+    switch (m_connectionType)
     {
-        axesList.addString(joint);
-    }
-    remapperOptions.put("axesNames",axesNames.get(0));
+    case ConnectionType::REMAPPER:
+        if (!m_remapperConnector.connectToRobot())
+        {
+            return false;
+        }
+        break;
 
-    yarp::os::Bottle remoteControlBoards;
-    yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
-    for (auto& cb : m_controlBoards)
-    {
-        remoteControlBoardsList.addString("/" + m_robotPrefix + "/" + cb);
-    }
-    remapperOptions.put("remoteControlBoards",remoteControlBoards.get(0));
-    remapperOptions.put("localPortPrefix", "/" + m_name +"/remoteControlBoard:i");
-
-    if(!m_robotDevice.open(remapperOptions))
-    {
-        yError() << "Failed to open remote control board remapper.";
-        return false;
-    }
-    if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
-    {
-        yError() << "Failed to view encoder interface.";
-
-        return false;
+    case ConnectionType::STATE_EXT:
+        if (!m_stateExtConnector.connectToRobot())
+        {
+            return false;
+        }
+        break;
     }
 
     m_connectedToTheRobot = true;
@@ -281,86 +265,28 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
     return true;
 }
 
-bool idyntree_yarp_tools::Visualizer::getOrGuessJointsAndBoards(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
+void idyntree_yarp_tools::Visualizer::updateJointValues()
 {
-    m_jointList.clear();
-
-    yarp::os::Value jointsValue = inputConf.find("joints");
-
-    if (jointsValue.isNull())
+    if (m_connectedToTheRobot)
     {
-        for (size_t i = 0; i < model.getNrOfJoints(); ++i)
+        switch (m_connectionType)
         {
-            if (model.getJoint(i)->getNrOfDOFs() == 1)
-            {
-                m_jointList.push_back(model.getJointName(i)); //automatically select all the joint in the model that have 1DOF
-            }
-        }
-        if (m_jointList.size() != model.getNrOfPosCoords())
-        {
-            yError() << "The model contains joints with more than 1DOF. This is not yet supported.";
-            return false;
+        case ConnectionType::REMAPPER:
+            m_remapperConnector.getJointValues(m_joints);
+            break;
+
+        case ConnectionType::STATE_EXT:
+            m_stateExtConnector.getJointValues(m_joints);
+            break;
         }
     }
-    else
-    {
-        if (!jointsValue.isList())
-        {
-            yError() << "joints is specified, but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* jointList = jointsValue.asList();
-
-        for (size_t i = 0; i < jointList->size(); ++i)
-        {
-            yarp::os::Value jvalue = jointList->get(i);
-            if (!jvalue.isString())
-            {
-                yError() << "The value in position " << i << " (0-based) of joints is not a string.";
-                return false;
-            }
-            m_jointList.push_back(jvalue.asString());
-        }
-    }
-
-
-    m_controlBoards.clear();
-    yarp::os::Value controlBoardsValue = inputConf.find("controlboards");
-
-    if (controlBoardsValue.isNull())
-    {
-        m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"}; //assumes these as controlboards
-    }
-    else
-    {
-        if (!controlBoardsValue.isList())
-        {
-            yError() << "controlBoards is specified, but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* controlBoardsList = controlBoardsValue.asList();
-
-        for (size_t i = 0; i < controlBoardsList->size(); ++i)
-        {
-            yarp::os::Value cbValue = controlBoardsList->get(i);
-            if (!cbValue.isString())
-            {
-                yError() << "The value in position " << i << " (0-based) of controlBoards is not a string.";
-                return false;
-            }
-            m_controlBoards.push_back(cbValue.asString());
-        }
-    }
-
-    return true;
-
 }
 
 bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+
+    m_basicInfo = std::make_shared<BasicInfo>();
 
     // Listen to signals for closing in a clean way the application
     idyntree_yarp_tools::handleSignals([this](){this->closeSignalHandler();});
@@ -380,26 +306,68 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         return false;
     }
 
-    m_name = rf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
-    m_robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
-
     std::string modelName = rf.check("model", yarp::os::Value("model.urdf")).asString();
 
     std::string pathToModel = yarp::os::ResourceFinder::getResourceFinderSingleton().findFileByName(modelName);
+
+    if (pathToModel == "")
+    {
+        yError() << "Failed to find" << modelName;
+        return false;
+    }
+
     m_modelLoader.loadModelFromFile(pathToModel);
 
-    if (!getOrGuessJointsAndBoards(rf, m_modelLoader.model()))
+    std::string localName;
+
     {
-        yError() << "Failed to retrieve the joints and the control boards.";
-        return false;
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        m_basicInfo->name = rf.check("name", yarp::os::Value("idyntree-yarp-visualizer")).asString();
+        localName = m_basicInfo->name;
+        m_basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_jointList))
+    if (m_stateExtConnector.usingStateExt(rf))
     {
-        yError() << "Failed to get reduced model.";
-        return false;
+        m_connectionType = ConnectionType::STATE_EXT;
+
+        if (!m_stateExtConnector.configure(rf, m_basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via the StateExt port.";
+            return false;
+        }
+    }
+    else
+    {
+        m_connectionType = ConnectionType::REMAPPER;
+
+        if (!m_remapperConnector.configure(rf, m_modelLoader.model(), m_basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
+            return false;
+        }
     }
 
+    {
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        std::stringstream jointListInfo;
+        jointListInfo << "Using the following joints for visualization:" << std::endl;
+        for (const std::string& joint : m_basicInfo->jointList)
+        {
+            jointListInfo << "    - " << joint <<std::endl;
+        }
+
+        yInfo() << jointListInfo.str();
+
+        if (!m_modelLoader.loadReducedModelFromFullModel(m_modelLoader.model(), m_basicInfo->jointList)) //The connectors take care of setting the joint list
+        {
+            yError() << "Failed to get reduced model.";
+            return false;
+        }
+
+        m_joints.resize(m_basicInfo->jointList.size());
+        m_joints.zero();
+    }
 
     iDynTree::VisualizerOptions vizOptions;
     m_maxVizFPS = 65;  //default value
@@ -437,7 +405,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
     if (!m_offline)
     {
-        std::string rpcPortName = "/" + m_name + "/rpc";
+        std::string rpcPortName = "/" + localName + "/rpc";
         this->yarp().attachAsServer(this->m_rpcPort);
         if(!m_rpcPort.open(rpcPortName))
         {
@@ -460,7 +428,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
             std::string streamPortName = streamGroup.check("portName", yarp::os::Value("image")).asString();
 
-            std::string streamPortNameFull = "/" + m_name + "/" + streamPortName;
+            std::string streamPortNameFull = "/" + localName + "/" + streamPortName;
             if (!m_imagePort.open(streamPortNameFull))
             {
                 yError() << "Failed to open port " << streamPortNameFull;
@@ -548,9 +516,6 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_minimumMicroSecViz = std::round(1e6 / (double) m_maxVizFPS);
 
     m_wHb = iDynTree::Transform::Identity();
-    m_joints.resize(m_jointList.size());
-    m_jointsInDeg.resize(m_jointList.size());
-    m_joints.zero();
 
     return true;
 }
@@ -562,34 +527,67 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
     {
         std::cout << "Usage: idyntree-yarp-visualizer" << std::endl
                   << "Optional arguments:" << std::endl
-                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl
-                  << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl
-                  << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl
-                  << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl
+                  << "--help                                             Print this message;" << std::endl << std::endl
+                  << "--name <name>                                      The prefix used to open the visualizer ports. Default: idyntree-yarp-visualizer;" << std::endl << std::endl
+                  << "--robot <robot>                                    The prefix used to connect to the robot. Default: icub;" << std::endl << std::endl
+                  << "--model <model>                                    The URDF model to open. Default: model.urdf, it will be found according to the YARP_ROBOT_NAME;" << std::endl << std::endl
+                  << "--offline                                          Avoid to use the network. The model is only visualized;" << std::endl << std::endl
                   << "--autoconnect [true|false]                         If set to true, or no value is provided, it will try to connect to the robot automatically at startup." << std::endl
-                  << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl
-                  << "--controlboards <(\"cb1\", ...)>                     The set of control boards to connect to. Default: (\"head\", \"torso\", \"left_arm\", \"right_arm\", \"left_leg\", \"right_leg\");" << std::endl
-                  << "--joints <(\"j1\", ...)>                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
-                  << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl
-                  << "--cameraPosition <(px, py, pz)>                    Camera initial position. Default (0.8, 0.8, 0.8);" << std::endl
-                  << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl
-                  << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl
-                  << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl
-                  << "--backgroundColor <(r, g, b)>                      Visualizer background color. Default (0.0, 0.4, 0.4);" << std::endl
-                  << "--floorGridColor <(r, g, b)>                       Visualizer floor grid color. Default (0.0, 0.0, 1.0);" << std::endl
-                  << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl
-                  << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl
-                  << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl
-                  << " The following optional arguments are used only if the streaming of the image is enabled (see --streamImage):" << std::endl
-                  << "--OUTPUT_STREAM::portName <name>                   The suffix of the port where the stream the image. Default \"image\";" <<std::endl
-                  << "--OUTPUT_STREAM::imageWidth <width>                The width of the image streamed on the port. Default 400;" <<std::endl
-                  << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl
-                  << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl
-                  << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl
-                  << "--OUTPUT_STREAM::backgroundColor <(r, g, b)>       Set the background color of the streamed image. Default (0.0, 0.0, 0.0);" << std::endl
-                  << "--OUTPUT_STREAM::floorGridColor <(r, g, b)>        Set the floor grid color of the streamed image. Default (0.0, 0.0, 1.0);" << std::endl;
+                  << "                                                   If fails, the visualizer does not start. By default it tries to connect to the robot, but if it fails, nothing happens;" << std::endl << std::endl
+                  << "--controlboards \"(<cb1>, ...)\"                     The set of control boards to connect to. Default: \"(head, torso, left_arm, right_arm, left_leg, right_leg)\";" << std::endl << std::endl
+                  << "--joints \"(<j1>, ...)\"                             The set of joints to consider. These names are used both in the model and when connecting to the robot." << std::endl
+                  << "                                                   By default, it uses all the joints specified in the model having one degree of freedom;" << std::endl << std::endl
+                  << "--connectToStateExt \"(<cb1>, (<j1>, ...), ..)\"     With this command, it is possible to connect to the stateExt ports opened by the robot. This allows to visualize also data" << std::endl
+                  << "                                                   saved through the yarpdatatdumper for example. The stateExt ports contain only joint values, without any other information," << std::endl
+                  << "                                                   hence, it is necessary to explicitly list all the joints of the selected control boards in their correct order. " << std::endl
+                  << "                                                   The list provided after connectToStateExt is supposed to have an even number of elements." << std::endl
+                  << "                                                   It needs to be a sequence of a list containing the name of the control board (and eventually the number of joints to consider)," << std::endl
+                  << "                                                   followed by the full list of joints in the control board. Each joint entry can also be a list. In this case," << std::endl
+                  << "                                                   the first element is the joint name, the second is a keyword for the " << std::endl
+                  << "                                                   joint type (\"p\" or \"prismatic\" for prismatic joints, \"r\" or \"revolute\" for revolute joints)." << std::endl
+                  << "                                                   If a joint name is specified without being a list, then it is assumed to be a revolute joint."  << std::endl
+                  << "                                                   For example, suppose you want to connect to the neck and the torso, the syntax would be:"  << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, neck_roll, neck_yaw), torso, (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   If, for example, neck_roll is a prismatic joint, the syntax would be:" << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, (neck_roll, p), neck_yaw), torso, (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   In some case, it might be useful to consider only the first n joints of a control board (for example to avoid considering the hand joints)." << std::endl
+                  << "                                                   It is still necessary to specify all the joints, but only the first n will be used for the visualization." << std::endl
+                  << "                                                   For example, if you want to avoid considering the torso_yaw in the visualization, use the following notation:" << std::endl
+                  << "                                                   --connectToStateExt \"(head, (neck_pitch, (neck_roll, p), neck_yaw), (torso, 2), (torso_pitch, torso_roll, torso_yaw)\"" << std::endl
+                  << "                                                   In case --robot is \"icub\" or \"icubSim\" it is possible to use the following simplified syntax to connect to all the supported joints:" << std::endl
+                  << "                                                   --connectToStateExt default" << std::endl
+                  << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored;" << std::endl << std::endl
+                  << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl << std::endl
+                  << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl << std::endl
+                  << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl << std::endl
+                  << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl << std::endl
+                  << "--backgroundColor \"(r, g, b)\"                      Visualizer background color. Default \"(0.0, 0.4, 0.4)\";" << std::endl << std::endl
+                  << "--floorGridColor \"(r, g, b)\"                       Visualizer floor grid color. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl << std::endl
+                  << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl << std::endl
+                  << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl << std::endl
+                  << " The following optional arguments are used only if the streaming of the image is enabled (see --streamImage):" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::portName <name>                   The suffix of the port where the stream the image. Default \"image\";" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::imageWidth <width>                The width of the image streamed on the port. Default 400;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b)\"       Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0)\";" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b)\"        Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl << std::endl
+                  << "All these options can be added to a .ini file. If you use the following argument:" << std::endl
+                  << "--from </path/file>.ini                            Example of .ini file:" << std::endl
+                  << "                                                   #--------------------"<< std::endl
+                  << "                                                   name    anotherName" << std::endl
+                  << "                                                   robot   myRobot" << std::endl
+                  << "                                                   [OUTPUT_STREAM]" <<std::endl
+                  << "                                                   portName    myPort" << std::endl
+                  << "                                                   mirrorImage true" << std::endl
+                  << "                                                   floorGridColor (1.0, 0.0, 0.0)" << std::endl
+                  << "                                                   #--------------------" <<std::endl
+                  << "                                                   Note that all the -- have been removed, while the prefix OUTPUT_STREAM::" <<std::endl
+                  << "                                                   is no more necessary after the [OUTPUT_STREAM] tag." <<std::endl << std::endl;
 
         return true;
     }
@@ -631,15 +629,7 @@ bool idyntree_yarp_tools::Visualizer::update()
         return true;
     }
 
-    if (m_connectedToTheRobot)
-    {
-        m_encodersInterface->getEncoders(m_jointsInDeg.data());
-
-        for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
-        {
-            m_joints(i) = iDynTree::deg2rad(m_jointsInDeg(i));
-        }
-    }
+    updateJointValues();
 
     m_viz.modelViz("robot").setPositions(m_wHb, m_joints);
 
@@ -688,10 +678,9 @@ void idyntree_yarp_tools::Visualizer::close()
     std::lock_guard<std::mutex> lock(m_mutex);
 
     m_viz.close();
-    m_image.resize(0,0);
     m_imagePort.close();
     m_rpcPort.close();
-    m_robotDevice.close();
+    m_remapperConnector.close();
 }
 
 void idyntree_yarp_tools::Visualizer::closeSignalHandler()
