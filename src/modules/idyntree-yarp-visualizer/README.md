@@ -1,6 +1,6 @@
 # idyntree-yarp-visualizer
 
-This module allows visualing a robot starting from its URDF. 
+This module allows visualizing a robot starting from its URDF.
 
 ![image](https://user-images.githubusercontent.com/18591940/115052071-cda47400-9edd-11eb-962a-c136abf2bfdb.png)
 
