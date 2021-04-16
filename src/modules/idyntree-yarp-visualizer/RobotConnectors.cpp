@@ -52,6 +52,8 @@ bool RemapperConnector::getJointNamesFromModel(const yarp::os::Searchable &input
 
     if (jointsValue.isNull())
     {
+        yInfo() << "Retrieving the list of joints from the model.";
+
         for (size_t i = 0; i < model.getNrOfJoints(); ++i)
         {
             if (model.getJoint(i)->getNrOfDOFs() == 1)
@@ -264,6 +266,13 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 
         yarp::os::Bottle* jointList = jointListValue.asList();
 
+        if (m_cb_jointsMap.back().jointsToConsider > static_cast<int>(jointList->size()))
+        {
+            yError() << "It has been specified to consider"<< m_cb_jointsMap.back().jointsToConsider
+                     << "joints, but only" << jointList->size() << "are listed.";
+            return false;
+        }
+
         for (size_t j = 0; j < jointList->size(); ++j)
         {
             yarp::os::Value& jointValue = jointList->get(j);
@@ -379,23 +388,29 @@ bool StateExtConnector::configure(const yarp::os::Searchable &inputConf, std::sh
 
         if (robotLocalName == "icubSim")
         {
-            confValue.fromString("(head, (neck_pitch, neck_roll, neck_yaw),"
-                                 " torso, (torso_yaw, torso_pitch, torso_roll),"
-                                 " left_arm, (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw),"
-                                 " right_arm, (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw),"
-                                 " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
-                                 " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))");
+            std::string defaultString = "(head, (neck_pitch, neck_roll, neck_yaw),"
+                                        " torso, (torso_yaw, torso_pitch, torso_roll),"
+                                        " left_arm, (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw),"
+                                        " right_arm, (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw),"
+                                        " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
+                                        " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))";
+            confValue.fromString(defaultString.c_str());
+
+            yInfo() << "Using default StateExt configuration for robot icubSim. Corresponding command: \n--connectToStateExt " + defaultString + "\"";
         }
         else if (robotLocalName == "icub")
         {
-            confValue.fromString("((head, 3), (neck_pitch, neck_roll, neck_yaw, eyes_tilt, eyes_vers, eyes_verg),"
-                                 " torso, (torso_roll, torso_pitch, torso_yaw),"
-                                 " (left_arm, 7), (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw,"
-                                    " l_hand_finger, l_thumb_oppose, l_thumb_proximal, l_thumb_distal, l_index_proximal, l_index_distal, l_middle_proximal, l_middle_distal, l_little_fingers),"
-                                 " (right_arm, 7), (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw,"
-                                    " r_hand_finger, r_thumb_oppose, r_thumb_proximal, r_thumb_distal, r_index_proximal, r_index_distal, r_middle_proximal, r_middle_distal, r_little_fingers),"
-                                 " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
-                                 " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))");
+            std::string defaultString = "((head, 3), (neck_pitch, neck_roll, neck_yaw, eyes_tilt, eyes_vers, eyes_verg),"
+                                        " torso, (torso_roll, torso_pitch, torso_yaw),"
+                                        " (left_arm, 7), (l_shoulder_pitch, l_shoulder_roll, l_shoulder_yaw, l_elbow, l_wrist_prosup, l_wrist_pitch, l_wrist_yaw,"
+                                           " l_hand_finger, l_thumb_oppose, l_thumb_proximal, l_thumb_distal, l_index_proximal, l_index_distal, l_middle_proximal, l_middle_distal, l_little_fingers),"
+                                        " (right_arm, 7), (r_shoulder_pitch, r_shoulder_roll, r_shoulder_yaw, r_elbow, r_wrist_prosup, r_wrist_pitch, r_wrist_yaw,"
+                                           " r_hand_finger, r_thumb_oppose, r_thumb_proximal, r_thumb_distal, r_index_proximal, r_index_distal, r_middle_proximal, r_middle_distal, r_little_fingers),"
+                                        " left_leg, (l_hip_pitch, l_hip_roll, l_hip_yaw, l_knee, l_ankle_pitch, l_ankle_roll),"
+                                        " right_leg, (r_hip_pitch, r_hip_roll, r_hip_yaw, r_knee, r_ankle_pitch, r_ankle_roll))";
+            confValue.fromString(defaultString.c_str());
+
+            yInfo() << "Using default StateExt configuration for robot icub. Corresponding command: \n--connectToStateExt \"" + defaultString + "\"";
         }
         else
         {
