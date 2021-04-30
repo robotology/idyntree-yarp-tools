@@ -24,9 +24,9 @@ service VisualizerCommands
 
     /**
      * Attempt to reconnect to the robot.
-     * @return true/false in case of success/failure.
+     * @return A status message. "[ok]" in case of success
      */
-    bool reconnectToRobot();
+    string reconnectToRobot();
 
     /**
      * Get the camera position

@@ -2,30 +2,81 @@
 
 using namespace std::chrono_literals;
 
-bool idyntree_yarp_tools::Visualizer::connectToTheRobot()
+void idyntree_yarp_tools::Visualizer::connectToTheRobot()
 {
     m_connectedToTheRobot = false;
+    m_connectedToWBD = false;
 
     switch (m_connectionType)
     {
     case ConnectionType::REMAPPER:
-        if (!m_remapperConnector.connectToRobot())
+        if (m_remapperConnector.connectToRobot())
         {
-            return false;
+            m_connectedToTheRobot = true;
         }
         break;
 
     case ConnectionType::STATE_EXT:
-        if (!m_stateExtConnector.connectToRobot())
+        if (m_stateExtConnector.connectToRobot())
         {
-            return false;
+            m_connectedToTheRobot = true;
         }
         break;
     }
 
-    m_connectedToTheRobot = true;
+    if (m_useWBD)
+    {
+        m_connectedToWBD = yarp::os::Network::connect(m_remoteNextExternalWrenchesPortName, m_netExternalWrenchesPort.getName());
+    }
 
-    return true;
+}
+
+iDynTree::Vector3 idyntree_yarp_tools::Visualizer::rgbFromConfig(const yarp::os::Searchable &inputConf, const std::string &optionName)
+{
+    iDynTree::Vector3 rgb;
+    rgb.zero();
+    rgb[1] = -1; //g=-1 -> The option has not been found
+    yarp::os::Value colorValue = inputConf.find(optionName);
+
+    if (!colorValue.isNull())
+    {
+        if (!colorValue.isList())
+        {
+            yError() << optionName + " is specified but it is not a list.";
+            rgb[0] = -1; //r=-1 -> Error
+            return rgb;
+        }
+
+        yarp::os::Bottle* colorList = colorValue.asList();
+        if (colorList->size() != 3)
+        {
+            yError() << optionName + " is specified but the size is different from 3 (only RGB colors are supported).";
+            rgb[0] = -1; //r=-1 -> Error
+            return rgb;
+        }
+
+        for (size_t i = 0; i< 3; ++i)
+        {
+            if (colorList->get(i).isDouble())
+            {
+                rgb[i] = colorList->get(i).asDouble();
+                if (rgb[i] > 1.0 || rgb[i] < 0.0)
+                {
+                    yError() << "The value in position " << i << " (0-based) of " + optionName + " is not value. It needs to be between 0.0 and 1.0.";
+                    rgb[0] = -1; //r=-1 -> Error
+                    return rgb;
+                }
+            }
+            else
+            {
+                yError() << "The value in position " << i << " (0-based) of " + optionName + " is not a double";
+                rgb[0] = -1; //r=-1 -> Error
+
+                return rgb;
+            }
+        }
+    }
+    return rgb;
 }
 
 bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions& output, unsigned int &fps)
@@ -81,84 +132,24 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
 
 bool idyntree_yarp_tools::Visualizer::setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment &environment)
 {
-    yarp::os::Value backgroundColorValue = inputConf.find("backgroundColor");
-
-    if (!backgroundColorValue.isNull())
+    iDynTree::Vector3 rgbBackground = rgbFromConfig(inputConf, "backgroundColor");
+    if (rgbBackground[0] < 0)
     {
-        if (!backgroundColorValue.isList())
-        {
-            yError() << "backgroundColor is specified but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* backGroundColorList = backgroundColorValue.asList();
-        if (backGroundColorList->size() != 3)
-        {
-            yError() << "backgroundColor is specified but the size is different from 3 (only RGB colors are supported).";
-            return false;
-        }
-
-        iDynTree::Vector3 rgb;
-
-        for (size_t i = 0; i< 3; ++i)
-        {
-            if (backGroundColorList->get(i).isDouble())
-            {
-                rgb[i] = backGroundColorList->get(i).asDouble();
-                if (rgb[i] > 1.0 || rgb[i] < 0.0)
-                {
-                    yError() << "The value in position " << i << " (0-based) of backgroundColor is not value. It needs to be between 0.0 and 1.0.";
-                    return false;
-                }
-            }
-            else
-            {
-                yError() << "The value in position " << i << " (0-based) of backgroundColor is not a double";
-                return false;
-            }
-        }
-
-        environment.setBackgroundColor(iDynTree::ColorViz(rgb[0], rgb[1], rgb[2], 1.0));
+        return false; //Error case
+    }
+    else if (rgbBackground[1] >= 0) //The option has been found
+    {
+        environment.setBackgroundColor(iDynTree::ColorViz(rgbBackground[0], rgbBackground[1], rgbBackground[2], 1.0));
     }
 
-    yarp::os::Value floorgridColorValue = inputConf.find("floorGridColor");
-
-    if (!floorgridColorValue.isNull())
+    iDynTree::Vector3 rgbFloor = rgbFromConfig(inputConf, "floorGridColor");
+    if (rgbFloor[0] < 0)
     {
-        if (!floorgridColorValue.isList())
-        {
-            yError() << "floorGridColor is specified but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* floorGridColorList = floorgridColorValue.asList();
-        if (floorGridColorList->size() != 3)
-        {
-            yError() << "floorGridColor is specified but the size is different from 3 (only RGB colors are supported).";
-            return false;
-        }
-
-        iDynTree::Vector3 rgb;
-
-        for (size_t i = 0; i< 3; ++i)
-        {
-            if (floorGridColorList->get(i).isDouble())
-            {
-                rgb[i] = floorGridColorList->get(i).asDouble();
-                if (rgb[i] > 1.0 || rgb[i] < 0.0)
-                {
-                    yError() << "The value in position " << i << " (0-based) of floorGridColor is not value. It needs to be between 0.0 and 1.0.";
-                    return false;
-                }
-            }
-            else
-            {
-                yError() << "The value in position " << i << " (0-based) of floorGridColor is not a double";
-                return false;
-            }
-        }
-
-        environment.setFloorGridColor(iDynTree::ColorViz(rgb[0], rgb[1], rgb[2], 1.0));
+        return false; //Error case
+    }
+    else if (rgbFloor[1] >= 0) //The option has been found
+    {
+        environment.setFloorGridColor(iDynTree::ColorViz(rgbFloor[0], rgbFloor[1], rgbFloor[2], 1.0));
     }
 
     yarp::os::Value floorVisibleValue = inputConf.find("floorVisible");
@@ -278,6 +269,108 @@ void idyntree_yarp_tools::Visualizer::updateJointValues()
         case ConnectionType::STATE_EXT:
             m_stateExtConnector.getJointValues(m_joints);
             break;
+        }
+    }
+}
+
+void idyntree_yarp_tools::Visualizer::updateWrenchesVisualization()
+{
+
+    size_t inactivityThreshold = m_maxVizFPS/2;
+
+    for (auto& vizWrench : m_netExternalWrenchesMap)
+    {
+        if (vizWrench.second.inactivityCounter < inactivityThreshold)
+        {
+            vizWrench.second.inactivityCounter++;
+        }
+    }
+
+    if (m_connectedToWBD)
+    {
+        yarp::os::Bottle* bottle = m_netExternalWrenchesPort.read(false);
+        if (bottle)
+        {
+            for (size_t link = 0; link < bottle->size(); ++link)
+            {
+                yarp::os::Bottle* wrenchPair = bottle->get(link).asList();
+                if (!wrenchPair || wrenchPair->size() != 2)
+                {
+                    return;
+                }
+
+                std::string linkName = wrenchPair->get(0).asString();
+                yarp::os::Bottle* wrenchBottle = wrenchPair->get(1).asList();
+
+                if (!wrenchBottle || wrenchBottle->size() != 6)
+                {
+                    return;
+                }
+
+                VisualizedWrench& vizWrench = m_netExternalWrenchesMap[linkName];
+
+                vizWrench.inactivityCounter = 0;
+
+                for (size_t i = 0; i < 3; ++i)
+                {
+                    vizWrench.scaledWrench(i) = m_forceMultiplier * wrenchBottle->get(i).asDouble();
+                }
+
+                for (size_t i = 3; i < 6; ++i)
+                {
+                    vizWrench.scaledWrench(i) = m_torquesMultiplier * wrenchBottle->get(i).asDouble();
+                }
+
+                if ((vizWrench.frameIndex == iDynTree::FRAME_INVALID_INDEX) && !vizWrench.skip) //the link has never been checked in the model
+                {
+                    vizWrench.frameIndex = m_viz.modelViz("robot").model().getFrameIndex(linkName);
+                    vizWrench.skip =  vizWrench.frameIndex == iDynTree::FRAME_INVALID_INDEX;
+                }
+            }
+        }
+    }
+    else
+    {
+        for (auto& vizWrench : m_netExternalWrenchesMap)
+        {
+            vizWrench.second.scaledWrench.zero();
+        }
+    }
+
+    for (auto& vizWrench : m_netExternalWrenchesMap)
+    {
+        if (vizWrench.second.inactivityCounter >= inactivityThreshold)
+        {
+            vizWrench.second.scaledWrench.zero();
+        }
+
+        if (!vizWrench.second.skip)
+        {
+            iDynTree::Transform linkTransform = m_viz.modelViz("robot").getWorldFrameTransform(vizWrench.second.frameIndex);
+            iDynTree::Wrench scaledWrenchInWorld = linkTransform * vizWrench.second.scaledWrench;
+            iDynTree::Position originLinear = linkTransform.getPosition();
+            iDynTree::Position originAngular = linkTransform.getPosition();
+
+
+            for (size_t i = 0; i < 3; ++i)
+            {
+                originLinear(i) -= scaledWrenchInWorld.getLinearVec3()(i); //to have the arrow pointing toward the link
+                originAngular(i) -= scaledWrenchInWorld.getAngularVec3()(i);
+            }
+
+            if (vizWrench.second.arrowIndexLinear < 0) //The arrow was never added
+            {
+                vizWrench.second.arrowIndexLinear = m_viz.vectors().addVector(originLinear, scaledWrenchInWorld.getLinearVec3());
+                m_viz.vectors().setVectorColor(vizWrench.second.arrowIndexLinear, m_forcesColor);
+                vizWrench.second.arrowIndexAngular = m_viz.vectors().addVector(originAngular, scaledWrenchInWorld.getAngularVec3());
+                m_viz.vectors().setVectorColor(vizWrench.second.arrowIndexAngular, m_torquesColor);
+
+            }
+            else
+            {
+                m_viz.vectors().updateVector(vizWrench.second.arrowIndexLinear, originLinear, scaledWrenchInWorld.getLinearVec3());
+                m_viz.vectors().updateVector(vizWrench.second.arrowIndexAngular, originAngular, scaledWrenchInWorld.getAngularVec3());
+            }
         }
     }
 }
@@ -440,9 +533,9 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
             //default values
             textureOptions.winHeight = 400;
             textureOptions.winWidth = 400;
-            m_desiredFPS = 30;
+            m_desiredTextureFPS = 30;
 
-            if (!setVizOptionsFromConfig(streamGroup, textureOptions, m_desiredFPS))
+            if (!setVizOptionsFromConfig(streamGroup, textureOptions, m_desiredTextureFPS))
             {
                 yError() << "Failed to set the options of the additional texture.";
                 return false;
@@ -475,11 +568,60 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         }
     }
 
+    m_useWBD = ! m_offline && !rf.check("noNetExternalWrenches");
+    m_remoteNextExternalWrenchesPortName = rf.check("netExternalWrenchesPortName" , yarp::os::Value("/wholeBodyDynamics/netExternalWrenches:o")).asString();
+    m_forceMultiplier = rf.check("externalForcesMultiplier", yarp::os::Value(0.005)).asDouble();
+    m_torquesMultiplier = rf.check("externalTorquesMultiplier", yarp::os::Value(0.05)).asDouble();
+    iDynTree::Vector3 rgbForces = rgbFromConfig(rf, "externalForcesColor");
+    if (rgbForces[0] < 0)
+    {
+        return false; //Error case
+    }
+    else if (rgbForces[1] >= 0) //The option has been found
+    {
+        m_forcesColor.r = rgbForces(0);
+        m_forcesColor.g = rgbForces(1);
+        m_forcesColor.b = rgbForces(2);
+        m_forcesColor.a = 1.0;
+    }
+    else
+    {
+        m_forcesColor = iDynTree::ColorViz(1.0, 0.0, 0.0, 1.0);
+    }
+
+    iDynTree::Vector3 rgbTorques = rgbFromConfig(rf, "externalTorquesColor");
+    if (rgbTorques[0] < 0)
+    {
+        return false; //Error case
+    }
+    else if (rgbTorques[1] >= 0) //The option has been found
+    {
+        m_torquesColor.r = rgbTorques(0);
+        m_torquesColor.g = rgbTorques(1);
+        m_torquesColor.b = rgbTorques(2);
+        m_torquesColor.a = 1.0;
+    }
+    else
+    {
+        m_torquesColor = iDynTree::ColorViz(0.0, 0.0, 1.0, 1.0);
+    }
+
+
+    if (!m_offline && m_useWBD)
+    {
+        if (!m_netExternalWrenchesPort.open("/" + localName + "/netExternalWrenches:i"))
+        {
+            yError() << "Failed to open the port /" + localName +"/netExternalWrenches:i to connect to the next external wrenches."
+                     << "Use --noNetExternalWrenches to avoid opening it.";
+            return false;
+        }
+    }
+
     bool autoconnectSpecified = rf.check("autoconnect"); //Check if autoconnect has been explicitly set
     bool autoconnectSpecifiedValue = true;
-    if (rf.check("autoconnect")) //autoconnect is present
+    if (autoconnectSpecified) //autoconnect is present
     {
-        yarp::os::Value autoconnectValue = rf.find("autoconnect");
+        yarp::os::Value& autoconnectValue = rf.find("autoconnect");
 
         if (!autoconnectValue.isNull() && autoconnectValue.isBool() && !autoconnectValue.asBool()) //autoconnect is specified to be false
         {
@@ -491,10 +633,17 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     {
         if (!m_offline)
         {
-            bool ok = connectToTheRobot();
-            if (autoconnectSpecified && !ok)
+            connectToTheRobot();
+            if (autoconnectSpecified && !m_connectedToTheRobot)
             {
                 yError() << "It is specified to autoconnect, but the connection to the robot failed.";
+                return false;
+            }
+
+            if (autoconnectSpecified && !m_connectedToWBD)
+            {
+                yError() << "It is specified to autoconnect, but the connection to the net external wrenches port failed."
+                         << "Use --noNetExternalWrenches to avoid connecting to it.";
                 return false;
             }
         }
@@ -512,7 +661,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_lastSent = std::chrono::steady_clock::now();
     m_lastViz = std::chrono::steady_clock::now();
 
-    m_minimumMicroSec = std::round(1e6 / (double) m_desiredFPS);
+    m_minimumMicroSec = std::round(1e6 / (double) m_desiredTextureFPS);
     m_minimumMicroSecViz = std::round(1e6 / (double) m_maxVizFPS);
 
     m_wHb = iDynTree::Transform::Identity();
@@ -557,6 +706,12 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   In case --robot is \"icub\" or \"icubSim\" it is possible to use the following simplified syntax to connect to all the supported joints:" << std::endl
                   << "                                                   --connectToStateExt default" << std::endl
                   << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored;" << std::endl << std::endl
+                  << "--noNetExternalWrenches                            Avoid connecting to WholeBodyDynamics to retrieve the net external wrenches applied on the robot link;" << std::endl << std::endl
+                  << "--netExternalWrenchesPortName <name>               The name of the WholeBodyDynamics port to retrieve the net external wrenches. Default /wholeBodyDynamics/netExternalWrenches:o;"  << std::endl << std::endl
+                  << "--externalForcesMultiplier <multiplier>            The multiplier to scale the visualization of the external forces. Default 0.005"  << std::endl << std::endl
+                  << "--externalTorquesMultiplier <multiplier>           The multiplier to scale the visualization of the external torques. Default 0.05"  << std::endl << std::endl
+                  << "--externalForcesColor \"(r, g, b)\"                  The color used for the visualization of the external forces. Default \"(1.0, 0.0, 0.0)\";" << std::endl << std::endl
+                  << "--externalTorquesColor \"(r, g, b)\"                 The color used for the visualization of the external torques. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
                   << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl << std::endl
                   << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl << std::endl
                   << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl << std::endl
@@ -633,6 +788,8 @@ bool idyntree_yarp_tools::Visualizer::update()
 
     m_viz.modelViz("robot").setPositions(m_wHb, m_joints);
 
+    updateWrenchesVisualization();
+
     m_viz.draw();
     m_lastViz = std::chrono::steady_clock::now();
 
@@ -681,6 +838,7 @@ void idyntree_yarp_tools::Visualizer::close()
     m_imagePort.close();
     m_rpcPort.close();
     m_remapperConnector.close();
+    m_netExternalWrenchesPort.close();
 }
 
 void idyntree_yarp_tools::Visualizer::closeSignalHandler()
@@ -712,10 +870,26 @@ bool idyntree_yarp_tools::Visualizer::setBasePose(const double x, const double y
     return true;
 }
 
-bool idyntree_yarp_tools::Visualizer::reconnectToRobot()
+std::string idyntree_yarp_tools::Visualizer::reconnectToRobot()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    return connectToTheRobot();
+    connectToTheRobot();
+
+    if (m_connectedToTheRobot && (!m_useWBD || m_connectedToWBD))
+    {
+        return "[ok]";
+    }
+    else
+    {
+        if (!m_connectedToTheRobot)
+        {
+            return "Failed to connect to the robot!";
+        }
+        else
+        {
+            return "The connection to the robot succeded, but not the connection to the net external wrenches port.";
+        }
+    }
 }
 
 std::vector<double> idyntree_yarp_tools::Visualizer::getCameraPosition()
