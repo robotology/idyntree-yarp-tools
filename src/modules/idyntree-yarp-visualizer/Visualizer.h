@@ -15,6 +15,7 @@
 #include <mutex>
 #include <thrifts/VisualizerCommands.h>
 #include <string>
+#include <unordered_map>
 #include <Utilities.h>
 #include "RobotConnectors.h"
 
@@ -44,7 +45,7 @@ class Visualizer : public VisualizerCommands
 
     std::chrono::steady_clock::time_point m_now, m_lastSent, m_lastViz;
 
-    unsigned int m_desiredFPS;
+    unsigned int m_desiredTextureFPS;
     unsigned int m_maxVizFPS;
     bool m_mirrorImage;
 
@@ -57,6 +58,25 @@ class Visualizer : public VisualizerCommands
     std::atomic<bool> m_isClosing{false};
     std::atomic<bool> m_connectedToTheRobot{false};
     std::atomic<bool> m_offline{false};
+    std::atomic<bool> m_useWBD{true};
+    std::atomic<bool> m_connectedToWBD{true};
+
+    std::string m_remoteNextExternalWrenchesPortName;
+    yarp::os::BufferedPort<yarp::os::Bottle> m_netExternalWrenchesPort;
+
+    struct VisualizedWrench
+    {
+        int arrowIndexLinear{-1};
+        size_t arrowIndexAngular;
+        iDynTree::Wrench scaledWrench{iDynTree::Wrench::Zero()};
+        iDynTree::FrameIndex frameIndex{iDynTree::FRAME_INVALID_INDEX};
+        size_t inactivityCounter{0};
+        bool skip{false};
+    };
+
+    std::unordered_map<std::string, VisualizedWrench> m_netExternalWrenchesMap;
+    iDynTree::ColorViz m_forcesColor, m_torquesColor;
+    double m_forceMultiplier, m_torquesMultiplier;
 
     std::atomic<ConnectionType> m_connectionType{ConnectionType::REMAPPER};
     RemapperConnector m_remapperConnector;
@@ -66,7 +86,9 @@ class Visualizer : public VisualizerCommands
 
     std::mutex m_mutex;
 
-    bool connectToTheRobot();
+    void connectToTheRobot();
+
+    iDynTree::Vector3 rgbFromConfig(const yarp::os::Searchable &inputConf, const std::string& optionName);
 
     bool setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions &output, unsigned int& fps);
 
@@ -75,6 +97,8 @@ class Visualizer : public VisualizerCommands
     bool setVizCameraFromConfig(const yarp::os::Searchable &inputConf, iDynTree::ICamera& camera);
 
     void updateJointValues();
+
+    void updateWrenchesVisualization();
 
 public:
 
@@ -114,9 +138,9 @@ public:
 
     /**
      * Attempt to reconnect to the robot.
-     * @return true/false in case of success/failure.
+     * @return A status message. "[ok]" in case of success
      */
-    virtual bool reconnectToRobot() override;
+    virtual std::string reconnectToRobot() override;
 
     /**
      * Get the camera position
