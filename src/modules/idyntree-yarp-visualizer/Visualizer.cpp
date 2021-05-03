@@ -62,7 +62,7 @@ iDynTree::Vector3 idyntree_yarp_tools::Visualizer::rgbFromConfig(const yarp::os:
                 rgb[i] = colorList->get(i).asDouble();
                 if (rgb[i] > 1.0 || rgb[i] < 0.0)
                 {
-                    yError() << "The value in position " << i << " (0-based) of " + optionName + " is not value. It needs to be between 0.0 and 1.0.";
+                    yError() << "The value in position " << i << " (0-based) of " + optionName + " is not an expected value. It needs to be between 0.0 and 1.0.";
                     rgb[0] = -1; //r=-1 -> Error
                     return rgb;
                 }
@@ -887,7 +887,7 @@ std::string idyntree_yarp_tools::Visualizer::reconnectToRobot()
         }
         else
         {
-            return "The connection to the robot succeded, but not the connection to the net external wrenches port.";
+            return "The connection to the robot succeeded, but not the connection to the net external wrenches port.";
         }
     }
 }
