@@ -347,7 +347,7 @@ void idyntree_yarp_tools::Visualizer::updateWrenchesVisualization()
         if (!vizWrench.second.skip)
         {
             iDynTree::Transform linkTransform = m_viz.modelViz("robot").getWorldFrameTransform(vizWrench.second.frameIndex);
-            iDynTree::Wrench scaledWrenchInWorld = linkTransform * vizWrench.second.scaledWrench;
+            iDynTree::Wrench scaledWrenchInWorld = linkTransform * vizWrench.second.scaledWrench; //the input wrenches are defined in the link frame
             iDynTree::Position originLinear = linkTransform.getPosition();
             iDynTree::Position originAngular = linkTransform.getPosition();
 
@@ -707,7 +707,11 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   --connectToStateExt default" << std::endl
                   << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored;" << std::endl << std::endl
                   << "--noNetExternalWrenches                            Avoid connecting to WholeBodyDynamics to retrieve the net external wrenches applied on the robot link;" << std::endl << std::endl
-                  << "--netExternalWrenchesPortName <name>               The name of the WholeBodyDynamics port to retrieve the net external wrenches. Default /wholeBodyDynamics/netExternalWrenches:o;"  << std::endl << std::endl
+                  << "--netExternalWrenchesPortName <name>               The name of the WholeBodyDynamics port to retrieve the net external wrenches." << std::endl
+                  << "                                                   The port is supposed to send a bottle of n pairs, where n is the number of links." << std::endl
+                  << "                                                   The first element of each pair is the name of the link. The second element is yet another list of 6 elements containing the value of the" << std::endl
+                  << "                                                   net external wrench, defined in the link frame. The first three elements are the linear part, while the other three are the angular part." << std::endl
+                  << "                                                   Default /wholeBodyDynamics/netExternalWrenches:o;"  << std::endl << std::endl
                   << "--externalForcesMultiplier <multiplier>            The multiplier to scale the visualization of the external forces. Default 0.005"  << std::endl << std::endl
                   << "--externalTorquesMultiplier <multiplier>           The multiplier to scale the visualization of the external torques. Default 0.05"  << std::endl << std::endl
                   << "--externalForcesColor \"(r, g, b)\"                  The color used for the visualization of the external forces. Default \"(1.0, 0.0, 0.0)\";" << std::endl << std::endl
