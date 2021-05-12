@@ -31,11 +31,12 @@ void idyntree_yarp_tools::Visualizer::connectToTheRobot()
 
 }
 
-iDynTree::Vector3 idyntree_yarp_tools::Visualizer::rgbFromConfig(const yarp::os::Searchable &inputConf, const std::string &optionName)
+iDynTree::Vector4 idyntree_yarp_tools::Visualizer::rgbaFromConfig(const yarp::os::Searchable &inputConf, const std::string &optionName)
 {
-    iDynTree::Vector3 rgb;
-    rgb.zero();
-    rgb[1] = -1; //g=-1 -> The option has not been found
+    iDynTree::Vector4 rgba;
+    rgba.zero();
+    rgba[3] = 1.0;
+    rgba[1] = -1; //g=-1 -> The option has not been found
     yarp::os::Value colorValue = inputConf.find(optionName);
 
     if (!colorValue.isNull())
@@ -43,40 +44,40 @@ iDynTree::Vector3 idyntree_yarp_tools::Visualizer::rgbFromConfig(const yarp::os:
         if (!colorValue.isList())
         {
             yError() << optionName + " is specified but it is not a list.";
-            rgb[0] = -1; //r=-1 -> Error
-            return rgb;
+            rgba[0] = -1; //r=-1 -> Error
+            return rgba;
         }
 
         yarp::os::Bottle* colorList = colorValue.asList();
-        if (colorList->size() != 3)
+        if ((colorList->size() != 3) && (colorList->size() != 4))
         {
-            yError() << optionName + " is specified but the size is different from 3 (only RGB colors are supported).";
-            rgb[0] = -1; //r=-1 -> Error
-            return rgb;
+            yError() << optionName + " is specified but the size is supposed to be either 3 (RGB) or 4 (RGBA).";
+            rgba[0] = -1; //r=-1 -> Error
+            return rgba;
         }
 
-        for (size_t i = 0; i< 3; ++i)
+        for (size_t i = 0; i< colorList->size(); ++i)
         {
             if (colorList->get(i).isDouble())
             {
-                rgb[i] = colorList->get(i).asDouble();
-                if (rgb[i] > 1.0 || rgb[i] < 0.0)
+                rgba[i] = colorList->get(i).asDouble();
+                if (rgba[i] > 1.0 || rgba[i] < 0.0)
                 {
-                    yError() << "The value in position " << i << " (0-based) of " + optionName + " is not an expected value. It needs to be between 0.0 and 1.0.";
-                    rgb[0] = -1; //r=-1 -> Error
-                    return rgb;
+                    yError() << "The value in position" << i << "(0-based) of " + optionName + " is not an expected value. It needs to be between 0.0 and 1.0.";
+                    rgba[0] = -1; //r=-1 -> Error
+                    return rgba;
                 }
             }
             else
             {
-                yError() << "The value in position " << i << " (0-based) of " + optionName + " is not a double";
-                rgb[0] = -1; //r=-1 -> Error
+                yError() << "The value in position" << i << "(0-based) of " + optionName + " is not a double";
+                rgba[0] = -1; //r=-1 -> Error
 
-                return rgb;
+                return rgba;
             }
         }
     }
-    return rgb;
+    return rgba;
 }
 
 bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions& output, unsigned int &fps)
@@ -132,24 +133,24 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
 
 bool idyntree_yarp_tools::Visualizer::setVizEnvironmentFromConfig(const yarp::os::Searchable &inputConf, iDynTree::IEnvironment &environment)
 {
-    iDynTree::Vector3 rgbBackground = rgbFromConfig(inputConf, "backgroundColor");
-    if (rgbBackground[0] < 0)
+    iDynTree::Vector4 rgbaBackground = rgbaFromConfig(inputConf, "backgroundColor");
+    if (rgbaBackground[0] < 0)
     {
         return false; //Error case
     }
-    else if (rgbBackground[1] >= 0) //The option has been found
+    else if (rgbaBackground[1] >= 0) //The option has been found
     {
-        environment.setBackgroundColor(iDynTree::ColorViz(rgbBackground[0], rgbBackground[1], rgbBackground[2], 1.0));
+        environment.setBackgroundColor(iDynTree::ColorViz(rgbaBackground[0], rgbaBackground[1], rgbaBackground[2], rgbaBackground[3]));
     }
 
-    iDynTree::Vector3 rgbFloor = rgbFromConfig(inputConf, "floorGridColor");
-    if (rgbFloor[0] < 0)
+    iDynTree::Vector4 rgbaFloor = rgbaFromConfig(inputConf, "floorGridColor");
+    if (rgbaFloor[0] < 0)
     {
         return false; //Error case
     }
-    else if (rgbFloor[1] >= 0) //The option has been found
+    else if (rgbaFloor[1] >= 0) //The option has been found
     {
-        environment.setFloorGridColor(iDynTree::ColorViz(rgbFloor[0], rgbFloor[1], rgbFloor[2], 1.0));
+        environment.setFloorGridColor(iDynTree::ColorViz(rgbaFloor[0], rgbaFloor[1], rgbaFloor[2], rgbaFloor[3]));
     }
 
     yarp::os::Value floorVisibleValue = inputConf.find("floorVisible");
@@ -549,7 +550,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
             m_textureInterface->environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
 
             //Default values
-            m_textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 1.0));
+            m_textureInterface->environment().setBackgroundColor(iDynTree::ColorViz(0.0, 0.0, 0.0, 0.0));
             m_textureInterface->environment().setFloorGridColor(iDynTree::ColorViz(0.0, 0.0, 1.0, 1.0));
             m_textureInterface->environment().setElementVisibility("floor_grid", false);
             m_textureInterface->environment().setElementVisibility("world_frame", false);
@@ -560,9 +561,11 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
                 return false;
             }
 
+            m_useRGBA = streamGroup.check("useRGBA", yarp::os::Value("false")).asBool();
+
             m_mirrorImage = streamGroup.check("mirrorImage", yarp::os::Value("false")).asBool();
 
-            m_image.setPixelCode(VOCAB_PIXEL_RGB);
+            m_image.setPixelCode(m_useRGBA ? VOCAB_PIXEL_RGBA : VOCAB_PIXEL_RGB);
             m_image.resize(textureOptions.winWidth, textureOptions.winHeight);
 
         }
@@ -572,34 +575,34 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     m_remoteNextExternalWrenchesPortName = rf.check("netExternalWrenchesPortName" , yarp::os::Value("/wholeBodyDynamics/netExternalWrenches:o")).asString();
     m_forceMultiplier = rf.check("externalForcesMultiplier", yarp::os::Value(0.005)).asDouble();
     m_torquesMultiplier = rf.check("externalTorquesMultiplier", yarp::os::Value(0.05)).asDouble();
-    iDynTree::Vector3 rgbForces = rgbFromConfig(rf, "externalForcesColor");
-    if (rgbForces[0] < 0)
+    iDynTree::Vector4 rgbaForces = rgbaFromConfig(rf, "externalForcesColor");
+    if (rgbaForces[0] < 0)
     {
         return false; //Error case
     }
-    else if (rgbForces[1] >= 0) //The option has been found
+    else if (rgbaForces[1] >= 0) //The option has been found
     {
-        m_forcesColor.r = rgbForces(0);
-        m_forcesColor.g = rgbForces(1);
-        m_forcesColor.b = rgbForces(2);
-        m_forcesColor.a = 1.0;
+        m_forcesColor.r = rgbaForces(0);
+        m_forcesColor.g = rgbaForces(1);
+        m_forcesColor.b = rgbaForces(2);
+        m_forcesColor.a = rgbaForces(3);
     }
     else
     {
         m_forcesColor = iDynTree::ColorViz(1.0, 0.0, 0.0, 1.0);
     }
 
-    iDynTree::Vector3 rgbTorques = rgbFromConfig(rf, "externalTorquesColor");
-    if (rgbTorques[0] < 0)
+    iDynTree::Vector4 rgbaTorques = rgbaFromConfig(rf, "externalTorquesColor");
+    if (rgbaTorques[0] < 0)
     {
         return false; //Error case
     }
-    else if (rgbTorques[1] >= 0) //The option has been found
+    else if (rgbaTorques[1] >= 0) //The option has been found
     {
-        m_torquesColor.r = rgbTorques(0);
-        m_torquesColor.g = rgbTorques(1);
-        m_torquesColor.b = rgbTorques(2);
-        m_torquesColor.a = 1.0;
+        m_torquesColor.r = rgbaTorques(0);
+        m_torquesColor.g = rgbaTorques(1);
+        m_torquesColor.b = rgbaTorques(2);
+        m_torquesColor.a = rgbaTorques(3);
     }
     else
     {
@@ -714,14 +717,14 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   Default /wholeBodyDynamics/netExternalWrenches:o;"  << std::endl << std::endl
                   << "--externalForcesMultiplier <multiplier>            The multiplier to scale the visualization of the external forces. Default 0.005"  << std::endl << std::endl
                   << "--externalTorquesMultiplier <multiplier>           The multiplier to scale the visualization of the external torques. Default 0.05"  << std::endl << std::endl
-                  << "--externalForcesColor \"(r, g, b)\"                  The color used for the visualization of the external forces. Default \"(1.0, 0.0, 0.0)\";" << std::endl << std::endl
-                  << "--externalTorquesColor \"(r, g, b)\"                 The color used for the visualization of the external torques. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "--externalForcesColor \"(r, g, b, [a])\"             The color used for the visualization of the external forces. Default \"(1.0, 0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "--externalTorquesColor \"(r, g, b, [a])\"            The color used for the visualization of the external torques. Default \"(0.0, 0.0, 1.0, 1.0)\";" << std::endl << std::endl
                   << "--cameraPosition \"(px, py, pz)\"                    Camera initial position. Default \"(0.8, 0.8, 0.8)\";" << std::endl << std::endl
                   << "--imageWidth <width>                               The initial width of the visualizer window. Default 800;" << std::endl << std::endl
                   << "--imageHeight <height>                             The initial height of the visualizer window. Default 600;" << std::endl << std::endl
                   << "--maxFPS <fps>                                     The maximum frame per seconds to update the visualizer. Default 65;" << std::endl << std::endl
-                  << "--backgroundColor \"(r, g, b)\"                      Visualizer background color. Default \"(0.0, 0.4, 0.4)\";" << std::endl << std::endl
-                  << "--floorGridColor \"(r, g, b)\"                       Visualizer floor grid color. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl
+                  << "--backgroundColor \"(r, g, b, [a])\"                 Visualizer background color. Default \"(0.0, 0.4, 0.4, 1.0)\";" << std::endl << std::endl
+                  << "--floorGridColor \"(r, g, b, [a])\"                  Visualizer floor grid color. Default \"(0.0, 0.0, 1.0, 1.0)\";" << std::endl << std::endl
                   << "--floorVisible <true|false>                        Set the visibility of the visualizer floor grid. Default true;" << std::endl << std::endl
                   << "--worldFrameVisible <true|false>                   Set the visibility of the visualizer world frame. Default true;" << std::endl << std::endl
                   << "--streamImage <true|false>                         If set to true, the visualizer can publish on a port what is rendered in the visualizer. Default true;" << std::endl << std::endl << std::endl
@@ -731,10 +734,11 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "--OUTPUT_STREAM::imageHeight <height>              The height of the image streamed on the port. Default 400;" <<std::endl << std::endl
                   << "--OUTPUT_STREAM::maxFPS <fps>                      The maximum number of times per second the image is streamed on the network. Default 30;" <<std::endl << std::endl
                   << "--OUTPUT_STREAM::mirrorImage <true|false>          If true, it mirrors the image before streaming it. Default false;" <<std::endl << std::endl
+                  << "--OUTPUT_STREAM::useRGBA <true|false>              If true, the output image is in RGBA format. RGB otherwise. Default false;" <<std::endl << std::endl
                   << "--OUTPUT_STREAM::floorVisible <true|false>         Set the visibility of the floor grid in the streamed image. Default false;" <<std::endl << std::endl
                   << "--OUTPUT_STREAM::worldFrameVisible <true|false>    Set the visibility of the world frame in the streamed image. Default false;" <<std::endl << std::endl
-                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b)\"       Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0)\";" << std::endl << std::endl
-                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b)\"        Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0)\";" << std::endl << std::endl << std::endl
+                  << "--OUTPUT_STREAM::backgroundColor \"(r, g, b, [a])\"  Set the background color of the streamed image. Default \"(0.0, 0.0, 0.0, 0.0)\";" << std::endl << std::endl
+                  << "--OUTPUT_STREAM::floorGridColor \"(r, g, b, [a])\"   Set the floor grid color of the streamed image. Default \"(0.0, 0.0, 1.0, 1.0)\";" << std::endl << std::endl << std::endl
                   << "All these options can be added to a .ini file. If you use the following argument:" << std::endl
                   << "--from </path/file>.ini                            Example of .ini file:" << std::endl
                   << "                                                   #--------------------"<< std::endl
@@ -816,16 +820,31 @@ bool idyntree_yarp_tools::Visualizer::update()
                     width = pixelImage.width;
                 }
 
-                yarp::sig::PixelRgb& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgb*>(
-                                                       m_image.getPixelAddress(width, pixelImage.height)));
+                if (m_useRGBA)
+                {
+                    yarp::sig::PixelRgba& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgba*>(
+                                                            m_image.getPixelAddress(width, pixelImage.height)));
 
-                pixelYarp.r = pixelImage.r;
-                pixelYarp.g = pixelImage.g;
-                pixelYarp.b = pixelImage.b;
+                    pixelYarp.r = pixelImage.r;
+                    pixelYarp.g = pixelImage.g;
+                    pixelYarp.b = pixelImage.b;
+                    pixelYarp.a = pixelImage.a;
+                }
+                else
+                {
+                    yarp::sig::PixelRgb& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgb*>(
+                                                           m_image.getPixelAddress(width, pixelImage.height)));
+
+                    pixelYarp.r = pixelImage.r;
+                    pixelYarp.g = pixelImage.g;
+                    pixelYarp.b = pixelImage.b;
+                }
+
+
             }
         }
         yarp::sig::FlexImage& imageToBeSent = m_imagePort.prepare();
-        imageToBeSent.setPixelCode(VOCAB_PIXEL_RGB);
+        imageToBeSent.setPixelCode(m_useRGBA ? VOCAB_PIXEL_RGBA : VOCAB_PIXEL_RGB);
         imageToBeSent.setExternal(m_image.getRawImage(), m_image.width(), m_image.height()); //Avoid to copy
         m_imagePort.write();
         m_lastSent = std::chrono::steady_clock::now();
