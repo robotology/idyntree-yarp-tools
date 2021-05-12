@@ -48,6 +48,7 @@ class Visualizer : public VisualizerCommands
     unsigned int m_desiredTextureFPS;
     unsigned int m_maxVizFPS;
     bool m_mirrorImage;
+    bool m_useRGBA;
 
     long m_minimumMicroSec;
     long m_minimumMicroSecViz;
@@ -88,7 +89,7 @@ class Visualizer : public VisualizerCommands
 
     void connectToTheRobot();
 
-    iDynTree::Vector3 rgbFromConfig(const yarp::os::Searchable &inputConf, const std::string& optionName);
+    iDynTree::Vector4 rgbaFromConfig(const yarp::os::Searchable &inputConf, const std::string& optionName);
 
     bool setVizOptionsFromConfig(const yarp::os::Searchable &inputConf, iDynTree::VisualizerOptions &output, unsigned int& fps);
 
