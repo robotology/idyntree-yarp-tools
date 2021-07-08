@@ -60,10 +60,21 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 find_package(YCM REQUIRED)
-find_package(YARP 3.3 REQUIRED)
+find_package(YARP 3.3 REQUIRED COMPONENTS os dev math rosmsg idl_tools)
 find_package(iDynTree 3.1.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+# Optional dependencies
+option(IDYNTREE_YARP_TOOLS_USES_ICUB_MAIN "Compile the tools that depend on icub-main." ON)
+option(IDYNTREE_YARP_TOOLS_USES_QT "Compile the tools that depend on Qt." ON)
+
+if(IDYNTREE_YARP_TOOLS_USES_ICUB_MAIN)
+  find_package(ICUB REQUIRED)
+endif()
+
+if(IDYNTREE_YARP_TOOLS_USES_QT)
+  find_package(Qt5 COMPONENTS Widgets Charts REQUIRED)
+endif()
 
 ### Options
 # Shared/Dynamic or Static library?
@@ -101,5 +112,3 @@ add_subdirectory(src)
 
 # Add the uninstall target
 include(AddUninstallTarget)
-
-

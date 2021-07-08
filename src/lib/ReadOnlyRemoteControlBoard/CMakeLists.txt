@@ -14,7 +14,7 @@ set(PLUGIN_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/ReadOnlyRemoteControlBoard.h"
 yarp_add_plugin(readonlyremotecontrolboard ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 
 target_include_directories(readonlyremotecontrolboard PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(readonlyremotecontrolboard ${YARP_LIBRARIES})
+target_link_libraries(readonlyremotecontrolboard YARP::YARP_os YARP::YARP_dev)
 
 yarp_install(TARGETS readonlyremotecontrolboard
              COMPONENT Runtime
