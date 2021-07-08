@@ -93,7 +93,7 @@ endif()
 
 # Enable the use of M_PI on MSVC
 if(MSVC)
-  add_definitions(_USE_MATH_DEFINES)
+  add_definitions(-D_USE_MATH_DEFINES)
 endif()
 
 ### Compile- and install-related commands.
