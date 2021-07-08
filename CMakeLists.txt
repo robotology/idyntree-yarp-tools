@@ -91,6 +91,11 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
     endif()
 endif()
 
+# Enable the use of M_PI on MSVC
+if(MSVC)
+  add_definitions(-D_USE_MATH_DEFINES)
+endif()
+
 ### Compile- and install-related commands.
 add_subdirectory(src)
 

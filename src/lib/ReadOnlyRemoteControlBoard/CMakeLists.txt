@@ -6,8 +6,7 @@ yarp_prepare_plugin(readonlyremotecontrolboard TYPE yarp::dev::ReadOnlyRemoteCon
                                                DEFAULT  ON)
 
 set(PLUGIN_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/ReadOnlyRemoteControlBoard.cpp"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/stateExtendedReader.cpp"
-                   "${CMAKE_CURRENT_SOURCE_DIR}/jointData.cpp")
+                   "${CMAKE_CURRENT_SOURCE_DIR}/stateExtendedReader.cpp")
 
 set(PLUGIN_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/ReadOnlyRemoteControlBoard.h"
                    "${CMAKE_CURRENT_SOURCE_DIR}/stateExtendedReader.h")
