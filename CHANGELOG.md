@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.0.2] - 2021-07-09
+
+### Added
+- Added `IDYNTREE_YARP_TOOLS_USES_QT_CHARTS` option to disable just the compilation of `idyntree-plotter` that depends on Qt5 Charts.
+
 ## [0.0.1] - 2021-07-08
 
 ### Added
