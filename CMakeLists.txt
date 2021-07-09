@@ -75,7 +75,7 @@ find_package(Qt5 COMPONENTS Widgets QUIET)
 option(IDYNTREE_YARP_TOOLS_USES_QT "Compile the tools that depend on Qt." ${Qt5_FOUND})
 
 find_package(Qt5 COMPONENTS Charts QUIET)
-option(IDYNTREE_YARP_TOOLS_USES_QT_CHARTS "Compile the tools that depend on Qt." ${Qt5_FOUND})
+option(IDYNTREE_YARP_TOOLS_USES_QT_CHARTS "Compile the tools that depend on Qt Charts." ${Qt5_FOUND})
 
 if(IDYNTREE_YARP_TOOLS_USES_QT AND NOT IDYNTREE_YARP_TOOLS_USES_QT_CHARTS)
   find_package(Qt5 COMPONENTS Widgets REQUIRED)
