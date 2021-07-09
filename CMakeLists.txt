@@ -71,9 +71,17 @@ if(IDYNTREE_YARP_TOOLS_USES_ICUB_MAIN)
   find_package(ICUB REQUIRED)
 endif()
 
-find_package(Qt5 COMPONENTS Widgets Charts QUIET)
+find_package(Qt5 COMPONENTS Widgets QUIET)
 option(IDYNTREE_YARP_TOOLS_USES_QT "Compile the tools that depend on Qt." ${Qt5_FOUND})
-if(IDYNTREE_YARP_TOOLS_USES_QT)
+
+find_package(Qt5 COMPONENTS Charts QUIET)
+option(IDYNTREE_YARP_TOOLS_USES_QT_CHARTS "Compile the tools that depend on Qt." ${Qt5_FOUND})
+
+if(IDYNTREE_YARP_TOOLS_USES_QT AND NOT IDYNTREE_YARP_TOOLS_USES_QT_CHARTS)
+  find_package(Qt5 COMPONENTS Widgets REQUIRED)
+endif()
+
+if(IDYNTREE_YARP_TOOLS_USES_QT AND IDYNTREE_YARP_TOOLS_USES_QT_CHARTS)
   find_package(Qt5 COMPONENTS Widgets Charts REQUIRED)
 endif()
 
