@@ -6,7 +6,7 @@ if(IDYNTREE_YARP_TOOLS_USES_ICUB_MAIN)
   add_subdirectory(urdf2dh)
 endif()
 
-if(IDYNTREE_YARP_TOOLS_USES_QT)
+if(IDYNTREE_YARP_TOOLS_USES_QT AND IDYNTREE_YARP_TOOLS_USES_QT_CHARTS)
   add_subdirectory(idyntree-plotter)
 endif()
 
