@@ -58,9 +58,9 @@ iDynTree::Vector4 idyntree_yarp_tools::Visualizer::rgbaFromConfig(const yarp::os
 
         for (size_t i = 0; i< colorList->size(); ++i)
         {
-            if (colorList->get(i).isDouble())
+            if (colorList->get(i).isFloat64())
             {
-                rgba[i] = colorList->get(i).asDouble();
+                rgba[i] = colorList->get(i).asFloat64();
                 if (rgba[i] > 1.0 || rgba[i] < 0.0)
                 {
                     yError() << "The value in position" << i << "(0-based) of " + optionName + " is not an expected value. It needs to be between 0.0 and 1.0.";
@@ -86,9 +86,9 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
 
     if (!width.isNull())
     {
-        if (width.isInt() && width.asInt() >= 0)
+        if (width.isInt32() && width.asInt32() >= 0)
         {
-            output.winWidth = width.asInt();
+            output.winWidth = width.asInt32();
         }
         else
         {
@@ -102,9 +102,9 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
 
     if (!height.isNull())
     {
-        if (height.isInt() && height.asInt() >= 0)
+        if (height.isInt32() && height.asInt32() >= 0)
         {
-            output.winHeight = height.asInt();
+            output.winHeight = height.asInt32();
         }
         else
         {
@@ -117,9 +117,9 @@ bool idyntree_yarp_tools::Visualizer::setVizOptionsFromConfig(const yarp::os::Se
 
     if (!fpsValue.isNull())
     {
-        if (fpsValue.isInt() && fpsValue.asInt() >= 0)
+        if (fpsValue.isInt32() && fpsValue.asInt32() >= 0)
         {
-            fps = fpsValue.asInt();
+            fps = fpsValue.asInt32();
         }
         else
         {
@@ -203,9 +203,9 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
 
         for (size_t i = 0; i< 3; ++i)
         {
-            if (cameraPositionList->get(i).isDouble())
+            if (cameraPositionList->get(i).isFloat64())
             {
-                desiredPosition[i] = cameraPositionList->get(i).asDouble();
+                desiredPosition[i] = cameraPositionList->get(i).asFloat64();
             }
             else
             {
@@ -238,9 +238,9 @@ bool idyntree_yarp_tools::Visualizer::setVizCameraFromConfig(const yarp::os::Sea
 
         for (size_t i = 0; i< 3; ++i)
         {
-            if (cameraTargetList->get(i).isDouble())
+            if (cameraTargetList->get(i).isFloat64())
             {
-                desiredTarget[i] = cameraTargetList->get(i).asDouble();
+                desiredTarget[i] = cameraTargetList->get(i).asFloat64();
             }
             else
             {
@@ -314,12 +314,12 @@ void idyntree_yarp_tools::Visualizer::updateWrenchesVisualization()
 
                 for (size_t i = 0; i < 3; ++i)
                 {
-                    vizWrench.scaledWrench(i) = m_forceMultiplier * wrenchBottle->get(i).asDouble();
+                    vizWrench.scaledWrench(i) = m_forceMultiplier * wrenchBottle->get(i).asFloat64();
                 }
 
                 for (size_t i = 3; i < 6; ++i)
                 {
-                    vizWrench.scaledWrench(i) = m_torquesMultiplier * wrenchBottle->get(i).asDouble();
+                    vizWrench.scaledWrench(i) = m_torquesMultiplier * wrenchBottle->get(i).asFloat64();
                 }
 
                 if ((vizWrench.frameIndex == iDynTree::FRAME_INVALID_INDEX) && !vizWrench.skip) //the link has never been checked in the model
@@ -484,12 +484,12 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
     }
 
     double sqrt2 = std::sqrt(2.0);
-    m_viz.enviroment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
-    m_viz.enviroment().addLight("secondSun");
-    m_viz.enviroment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
-    m_viz.enviroment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
+    m_viz.environment().lightViz("sun").setDirection(iDynTree::Direction(0.5/sqrt2, 0, -0.5/sqrt2));
+    m_viz.environment().addLight("secondSun");
+    m_viz.environment().lightViz("secondSun").setType(iDynTree::LightType::DIRECTIONAL_LIGHT);
+    m_viz.environment().lightViz("secondSun").setDirection(iDynTree::Direction(-0.5/sqrt2, 0, -0.5/sqrt2));
 
-    if (!setVizEnvironmentFromConfig(rf, m_viz.enviroment()))
+    if (!setVizEnvironmentFromConfig(rf, m_viz.environment()))
     {
         yError() << "Failed to set visualizer environment.";
         return false;
@@ -573,8 +573,8 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
     m_useWBD = ! m_offline && !rf.check("noNetExternalWrenches");
     m_remoteNextExternalWrenchesPortName = rf.check("netExternalWrenchesPortName" , yarp::os::Value("/wholeBodyDynamics/netExternalWrenches:o")).asString();
-    m_forceMultiplier = rf.check("externalForcesMultiplier", yarp::os::Value(0.005)).asDouble();
-    m_torquesMultiplier = rf.check("externalTorquesMultiplier", yarp::os::Value(0.05)).asDouble();
+    m_forceMultiplier = rf.check("externalForcesMultiplier", yarp::os::Value(0.005)).asFloat64();
+    m_torquesMultiplier = rf.check("externalTorquesMultiplier", yarp::os::Value(0.05)).asFloat64();
     iDynTree::Vector4 rgbaForces = rgbaFromConfig(rf, "externalForcesColor");
     if (rgbaForces[0] < 0)
     {
@@ -825,19 +825,21 @@ bool idyntree_yarp_tools::Visualizer::update()
                     yarp::sig::PixelRgba& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgba*>(
                                                             m_image.getPixelAddress(width, pixelImage.height)));
 
-                    pixelYarp.r = pixelImage.r;
-                    pixelYarp.g = pixelImage.g;
-                    pixelYarp.b = pixelImage.b;
-                    pixelYarp.a = pixelImage.a;
+                    //iDynTree specifies the pixels in [0.0, 1.0], yarp between in [0, 255]
+                    pixelYarp.r = pixelImage.r * 255;
+                    pixelYarp.g = pixelImage.g * 255;
+                    pixelYarp.b = pixelImage.b * 255;
+                    pixelYarp.a = pixelImage.a * 255;
                 }
                 else
                 {
                     yarp::sig::PixelRgb& pixelYarp = *(reinterpret_cast<yarp::sig::PixelRgb*>(
                                                            m_image.getPixelAddress(width, pixelImage.height)));
 
-                    pixelYarp.r = pixelImage.r;
-                    pixelYarp.g = pixelImage.g;
-                    pixelYarp.b = pixelImage.b;
+                    //iDynTree specifies the pixels in [0.0, 1.0], yarp between in [0, 255]
+                    pixelYarp.r = pixelImage.r * 255;
+                    pixelYarp.g = pixelImage.g * 255;
+                    pixelYarp.b = pixelImage.b * 255;
                 }
 
 
