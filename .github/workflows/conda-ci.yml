@@ -63,9 +63,9 @@ jobs:
       shell: bash -l {0}
       run: |
       
-        # YARP dependencies 
-        mamba install -c conda-forge ace eigen
-        
+        # YARP & iDynTree dependencies 
+        mamba install -c conda-forge ace eigen libxml2 assimp qt irrlicht
+
         # YCM
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/ycm
@@ -116,9 +116,9 @@ jobs:
       shell: bash -l {0}
       run: |
       
-        # YARP dependencies 
-        mamba install -c conda-forge ace eigen
-        
+        # YARP & iDynTree dependencies 
+        mamba install -c conda-forge ace eigen libxml2 assimp qt irrlicht
+
         # YCM
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/ycm
