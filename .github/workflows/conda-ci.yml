@@ -76,7 +76,8 @@ jobs:
         #icub-main
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/icub-main
-        cd yarp
+        cd icub-main
+        git checkout devel
         mkdir build
         cd build
         cmake -GNinja -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
@@ -115,7 +116,8 @@ jobs:
         #icub-main
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/icub-main
-        cd yarp
+        cd icub-main
+        git checkout devel
         mkdir build
         cd build
         cmake -G"Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}/Library -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
