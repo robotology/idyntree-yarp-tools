@@ -80,6 +80,7 @@ jobs:
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/yarp
         cd yarp
+        git checkout yarp-3.4 #Workaround to avoid https://github.com/robotology/idyntree-yarp-tools/pull/17#issuecomment-887301368
         mkdir build
         cd build
         cmake -GNinja -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DYARP_COMPILE_EXECUTABLES:BOOL=OFF ..
@@ -133,6 +134,7 @@ jobs:
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/yarp
         cd yarp
+        git checkout yarp-3.4 #Workaround to avoid https://github.com/robotology/idyntree-yarp-tools/pull/17#issuecomment-887301368
         mkdir build
         cd build
         cmake -G"Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}/Library -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DYARP_COMPILE_EXECUTABLES:BOOL=OFF ..
