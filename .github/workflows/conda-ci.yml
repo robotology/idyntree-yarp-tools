@@ -35,7 +35,7 @@ jobs:
         # Compilation related dependencies
         mamba install cmake compilers make ninja pkg-config
         # Actual dependencies
-        mamba install -c conda-forge -c robotology qt icub-main
+        mamba install -c conda-forge qt
         
     # Additional dependencies useful only on Linux
     - name: Dependencies [Conda/Linux]
@@ -53,7 +53,7 @@ jobs:
       shell: bash -l {0}
       run: |
         # Actual dependencies
-        mamba install -c conda-forge -c robotology yarp idyntree
+        mamba install -c conda-forge -c robotology yarp icub-main idyntree
         
     - name: Dependencies (devel) [Conda/Linux&macOS]
       if: |
@@ -70,6 +70,16 @@ jobs:
         mkdir build
         cd build
         cmake -GNinja -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DYARP_COMPILE_EXECUTABLES:BOOL=OFF ..
+        cmake --build . --config ${{ matrix.build_type }}        
+        cmake --install . --config ${{ matrix.build_type }}
+        
+        #icub-main
+        cd ${GITHUB_WORKSPACE}
+        git clone https://github.com/robotology/icub-main
+        cd yarp
+        mkdir build
+        cd build
+        cmake -GNinja -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
         cmake --build . --config ${{ matrix.build_type }}        
         cmake --install . --config ${{ matrix.build_type }}
         
@@ -99,6 +109,16 @@ jobs:
         mkdir build
         cd build
         cmake -G"Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}/Library -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DYARP_COMPILE_EXECUTABLES:BOOL=OFF ..
+        cmake --build . --config ${{ matrix.build_type }}        
+        cmake --install . --config ${{ matrix.build_type }}
+        
+        #icub-main
+        cd ${GITHUB_WORKSPACE}
+        git clone https://github.com/robotology/icub-main
+        cd yarp
+        mkdir build
+        cd build
+        cmake -G"Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}/Library -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
         cmake --build . --config ${{ matrix.build_type }}        
         cmake --install . --config ${{ matrix.build_type }}
         
