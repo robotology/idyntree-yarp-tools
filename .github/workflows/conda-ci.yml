@@ -48,8 +48,8 @@ jobs:
         
     - name: Dependencies (master)
       if: |
-        github.event_name != 'pull_request' ||
-        env.GITHUB_REF_SLUG != 'devel'
+        (github.event_name == 'pull_request' && env.GITHUB_BASE_REF_SLUG == 'master') ||
+        env.GITHUB_REF_SLUG == 'master'
       shell: bash -l {0}
       run: |
         # Actual dependencies
@@ -58,8 +58,8 @@ jobs:
     - name: Dependencies (devel) [Conda/Linux&macOS]
       if: |
         contains(matrix.os, 'macos') || contains(matrix.os, 'ubuntu') &&
-        ((github.event_name == 'pull_request' && env.GITHUB_BASE_REF_SLUG == 'devel') ||
-        env.GITHUB_REF_SLUG == 'devel')
+        ((github.event_name == 'pull_request' && env.GITHUB_BASE_REF_SLUG != 'master') ||
+         (github.event_name != 'pull_request' && env.GITHUB_REF_SLUG != 'master'))
       shell: bash -l {0}
       run: |
       
@@ -98,8 +98,8 @@ jobs:
     - name: Dependencies (devel) [Conda/Windows]
       if: |
         contains(matrix.os, 'windows') &&
-        ((github.event_name == 'pull_request' && env.GITHUB_BASE_REF_SLUG == 'devel') ||
-        env.GITHUB_REF_SLUG == 'devel')
+        ((github.event_name == 'pull_request' && env.GITHUB_BASE_REF_SLUG != 'master') ||
+         (github.event_name != 'pull_request' && env.GITHUB_REF_SLUG != 'master'))
       shell: bash -l {0}
       run: |
       
