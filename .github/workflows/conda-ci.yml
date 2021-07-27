@@ -63,6 +63,19 @@ jobs:
       shell: bash -l {0}
       run: |
       
+        # YARP dependencies 
+        mamba install -c conda-forge ace eigen ycm-cmake-modules
+        
+        # YCM
+        cd ${GITHUB_WORKSPACE}
+        git clone https://github.com/robotology/ycm
+        cd ycm
+        mkdir build
+        cd build
+        cmake -GNinja -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
+        cmake --build . --config ${{ matrix.build_type }}        
+        cmake --install . --config ${{ matrix.build_type }}
+      
         #YARP
         cd ${GITHUB_WORKSPACE}
         git clone https://github.com/robotology/yarp
@@ -102,6 +115,19 @@ jobs:
          (github.event_name != 'pull_request' && env.GITHUB_REF_SLUG != 'master'))
       shell: bash -l {0}
       run: |
+      
+        # YARP dependencies 
+        mamba install -c conda-forge ace eigen ycm-cmake-modules
+        
+        # YCM
+        cd ${GITHUB_WORKSPACE}
+        git clone https://github.com/robotology/ycm
+        cd ycm
+        mkdir build
+        cd build
+        cmake -G"Visual Studio 16 2019" -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX}/Library -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
+        cmake --build . --config ${{ matrix.build_type }}        
+        cmake --install . --config ${{ matrix.build_type }}
       
         #YARP
         cd ${GITHUB_WORKSPACE}
