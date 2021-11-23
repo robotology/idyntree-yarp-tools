@@ -24,7 +24,7 @@ service VisualizerCommands
 
     /**
      * Attempt to reconnect to the robot.
-     * @return A status message. "[ok]" in case of success
+     * @return A status message. `[ok]` in case of success
      */
     string reconnectToRobot();
 
