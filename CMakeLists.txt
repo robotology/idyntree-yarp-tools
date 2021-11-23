@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5)
 
 project(idyntree-yarp-tools
         LANGUAGES CXX C
-        VERSION 0.0.1)
+        VERSION 0.0.3)
 
 # Defines the CMAKE_INSTALL_LIBDIR, CMAKE_INSTALL_BINDIR and many other useful macros.
 # See https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
