@@ -4,6 +4,7 @@ project(idyntree-yarp-tools
         LANGUAGES CXX C
         VERSION 0.0.3)
 
+
 # Defines the CMAKE_INSTALL_LIBDIR, CMAKE_INSTALL_BINDIR and many other useful macros.
 # See https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
 include(GNUInstallDirs)
@@ -61,7 +62,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(YCM REQUIRED)
 find_package(YARP 3.3 REQUIRED COMPONENTS os dev math rosmsg idl_tools)
-find_package(iDynTree 3.1.0 REQUIRED)
+find_package(iDynTree 5.0.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 # Optional dependencies

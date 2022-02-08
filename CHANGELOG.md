@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Fixed the conversion from ``iDynTree`` to ``yarp`` pixels after https://github.com/robotology/idyntree/pull/903. Removed some deprecation warnings (https://github.com/robotology/idyntree-yarp-tools/pull/16)
+
 ## [0.0.3] - 2021-11-23
 
 ### Fixed
