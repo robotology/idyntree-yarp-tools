@@ -26,7 +26,7 @@ void idyntree_yarp_tools::Visualizer::connectToTheRobot()
 
     if (m_useWBD)
     {
-        m_connectedToWBD = yarp::os::Network::connect(m_remoteNextExternalWrenchesPortName, m_netExternalWrenchesPort.getName());
+        m_connectedToWBD = yarp::os::Network::connect(m_remoteNextExternalWrenchesPortName, m_netExternalWrenchesPort.getName(), "fast_tcp");
     }
 
 }
