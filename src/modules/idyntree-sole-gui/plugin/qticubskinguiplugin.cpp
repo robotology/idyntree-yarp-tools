@@ -139,13 +139,13 @@ bool QtiDynTreeSoleGuiPlugin::parseParameters(QStringList params)
         return false;
     }
 
-    gWidth =rf.find("width" ).asInt();
-    gHeight=rf.find("height").asInt();
+    gWidth =rf.find("width" ).asInt32();
+    gHeight=rf.find("height").asInt32();
     if (rf.check("xpos")){
-        gXpos=rf.find("xpos").asInt();
+        gXpos=rf.find("xpos").asInt32();
     }
     if (rf.check("ypos")){
-        gYpos=rf.find("ypos").asInt();
+        gYpos=rf.find("ypos").asInt32();
     }
 
     window_title=QString("SoleGui");
@@ -185,7 +185,7 @@ void QtiDynTreeSoleGuiPlugin::onTimeout()
 
 void QtiDynTreeSoleGuiPlugin::onInit()
 {
-    int period = rf.check("period")?rf.find("period").asInt():50;
+    int period = rf.check("period")?rf.find("period").asInt32():50;
 
     observerThread=new ObserverThread(rf, period);
     observerThread->start();

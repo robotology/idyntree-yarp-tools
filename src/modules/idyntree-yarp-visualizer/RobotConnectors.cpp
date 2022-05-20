@@ -249,7 +249,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
                     return false;
                 }
 
-                m_cb_jointsMap.back().jointsToConsider = cbNameList->get(1).asInt();
+                m_cb_jointsMap.back().jointsToConsider = cbNameList->get(1).asInt32();
             }
         }
         else

@@ -144,8 +144,8 @@ bool ObserverThread::init(yarp::os::ResourceFinder& config)
     m_kinDyn.loadRobotModel(mdlLoader.model());
 
 
-    int width =config.find("width" ).asInt();
-    int height=config.find("height").asInt();
+    int width =config.find("width" ).asInt32();
+    int height=config.find("height").asInt32();
 
 
     int max_tax=0;
