@@ -471,11 +471,11 @@ bool StateExtConnector::connectToRobot()
                 switch (joint.type)
                 {
                 case JointType::PRISMATIC:
-                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_PRISMATIC);
+                    axis.addVocab32(yarp::dev::VOCAB_JOINTTYPE_PRISMATIC);
                     break;
 
                 case JointType::REVOLUTE:
-                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_REVOLUTE);
+                    axis.addVocab32(yarp::dev::VOCAB_JOINTTYPE_REVOLUTE);
                     break;
                 }
 
