@@ -178,7 +178,7 @@ namespace dev {
                 return false;
             }
             std::string axisName = axis.asList()->get(0).asString();
-            JointTypeEnum axisVocab = static_cast<JointTypeEnum>(axis.asList()->get(1).asVocab());
+            JointTypeEnum axisVocab = static_cast<JointTypeEnum>(axis.asList()->get(1).asVocab32());
             m_axes.push_back(std::pair<std::string, yarp::dev::JointTypeEnum>(axisName, axisVocab));
         }
 
