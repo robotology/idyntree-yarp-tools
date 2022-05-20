@@ -243,7 +243,7 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 
             if (cbNameList->size() == 2)
             {
-                if (!cbNameList->get(1).isInt())
+                if (!cbNameList->get(1).isInt32())
                 {
                     yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is a malformed list. The second element is supposed to be int defining the number of considered joints.";
                     return false;
