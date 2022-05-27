@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.0.5] - 2022-05-27
+
+### Fixed
+- Fixed compatibility with YARP 3.7 (https://github.com/robotology/idyntree-yarp-tools/pull/30).
+
 ## [0.0.4] - 2022-02-09
 
 ### Fixed
