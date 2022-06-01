@@ -64,9 +64,9 @@ bool getVectorOfStringFromProperty(yarp::os::Property& prop, std::string key, st
     return true;
 }
 
-ObserverThread::ObserverThread(yarp::os::ResourceFinder& config, int period) : RateThread(period)
+ObserverThread::ObserverThread(yarp::os::ResourceFinder& config, int period) : PeriodicThread((double)period/1000.0)
 {
-    yDebug("ObserverThread running at %g ms.", getRate());
+    yDebug("ObserverThread running at %g s.", getPeriod());
 
     bool ok = this->init(config);
     assert(ok);
@@ -228,7 +228,7 @@ bool ObserverThread::init(yarp::os::ResourceFinder& config)
         initIMUFilter.resize(3, 0.0);
         initIMUFilter[2] = -9.81;
 
-        filtIMUGravity = new iCub::ctrl::FirstOrderLowPassFilter(6.0, this->getRate()/1000.0, initIMUFilter);
+        filtIMUGravity = new iCub::ctrl::FirstOrderLowPassFilter(6.0, this->getPeriod(), initIMUFilter);
     }
 
     return true;
