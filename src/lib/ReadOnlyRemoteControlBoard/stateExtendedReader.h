@@ -20,7 +20,6 @@
 #include <yarp/os/Thread.h>
 #include <yarp/os/Vocab.h>
 #include <yarp/os/Stamp.h>
-#include <yarp/os/Mutex.h>
 #include <yarp/os/Log.h>
 
 #include <yarp/sig/Vector.h>
