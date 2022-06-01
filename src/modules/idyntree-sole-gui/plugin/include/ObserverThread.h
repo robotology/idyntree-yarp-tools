@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <yarp/os/ResourceFinder.h>
-#include <yarp/os/RateThread.h>
+#include <yarp/os/PeriodicThread.h>
 #include <yarp/os/Log.h>
 
 #include <yarp/dev/IAnalogSensor.h>
@@ -33,7 +33,7 @@ using namespace yarp::dev;
 
 class QPainter;
 
-class ObserverThread : public yarp::os::RateThread
+class ObserverThread : public yarp::os::PeriodicThread
 {
 protected:
     // Attribute to read encoders position

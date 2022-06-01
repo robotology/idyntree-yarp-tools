@@ -64,7 +64,7 @@ bool getVectorOfStringFromProperty(yarp::os::Property& prop, std::string key, st
     return true;
 }
 
-ObserverThread::ObserverThread(yarp::os::ResourceFinder& config, int period) : RateThread(period)
+ObserverThread::ObserverThread(yarp::os::ResourceFinder& config, int period) : PeriodicThread((double)period/1000.0)
 {
     yDebug("ObserverThread running at %g ms.", getRate());
 
