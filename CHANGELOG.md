@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Remove use of deprecated YARP header to ensure compatibility with YARP 3.8 (https://github.com/robotology/idyntree-yarp-tools/pull/32).
+
 ## [0.0.5] - 2022-05-27
 
 ### Fixed
