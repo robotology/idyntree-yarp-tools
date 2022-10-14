@@ -566,7 +566,7 @@ StateExtConnector::EncodersInterface::~EncodersInterface()
     }
 }
 
-ConnectionType BasicConnector::requestedType(const yarp::os::Searchable &inputConf)
+ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputConf)
 {
     if (inputConf.check("connectToStateExt"))
     {

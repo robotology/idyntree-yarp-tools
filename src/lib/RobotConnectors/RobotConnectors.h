@@ -36,7 +36,7 @@ class BasicConnector
 {
 public:
 
-    ConnectionType requestedType(const yarp::os::Searchable &inputConf);
+    static ConnectionType RequestedType(const yarp::os::Searchable &inputConf);
 
     virtual bool connectToRobot() = 0;
 

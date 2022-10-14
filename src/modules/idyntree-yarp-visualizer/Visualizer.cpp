@@ -411,7 +411,7 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         m_basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    if (m_stateExtConnector.requestedType(rf) == ConnectionType::STATE_EXT)
+    if (BasicConnector::RequestedType(rf) == ConnectionType::STATE_EXT)
     {
         m_connectionType = ConnectionType::STATE_EXT;
 
