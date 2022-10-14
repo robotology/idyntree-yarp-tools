@@ -12,6 +12,7 @@
 #include <chrono>
 #include <thread>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <thrifts/VisualizerCommands.h>
 #include <string>
@@ -74,9 +75,7 @@ class Visualizer : public VisualizerCommands
     iDynTree::ColorViz m_forcesColor, m_torquesColor;
     double m_forceMultiplier, m_torquesMultiplier;
 
-    std::atomic<ConnectionType> m_connectionType{ConnectionType::REMAPPER};
-    RemapperConnector m_remapperConnector;
-    StateExtConnector m_stateExtConnector;
+    std::shared_ptr<BasicConnector> m_robotConnector{nullptr};
 
     yarp::os::Port m_rpcPort;
 

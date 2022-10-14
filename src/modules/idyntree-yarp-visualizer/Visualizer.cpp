@@ -4,25 +4,9 @@ using namespace std::chrono_literals;
 
 void idyntree_yarp_tools::Visualizer::connectToTheRobot()
 {
-    m_connectedToTheRobot = false;
     m_connectedToWBD = false;
 
-    switch (m_connectionType)
-    {
-    case ConnectionType::REMAPPER:
-        if (m_remapperConnector.connectToRobot())
-        {
-            m_connectedToTheRobot = true;
-        }
-        break;
-
-    case ConnectionType::STATE_EXT:
-        if (m_stateExtConnector.connectToRobot())
-        {
-            m_connectedToTheRobot = true;
-        }
-        break;
-    }
+    m_connectedToTheRobot =  (m_robotConnector && m_robotConnector->connectToRobot());
 
     if (m_useWBD)
     {
@@ -261,16 +245,7 @@ void idyntree_yarp_tools::Visualizer::updateJointValues()
 {
     if (m_connectedToTheRobot)
     {
-        switch (m_connectionType)
-        {
-        case ConnectionType::REMAPPER:
-            m_remapperConnector.getJointValues(m_joints);
-            break;
-
-        case ConnectionType::STATE_EXT:
-            m_stateExtConnector.getJointValues(m_joints);
-            break;
-        }
+        m_robotConnector->getJointValues(m_joints);
     }
 }
 
@@ -413,23 +388,27 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
 
     if (BasicConnector::RequestedType(rf) == ConnectionType::STATE_EXT)
     {
-        m_connectionType = ConnectionType::STATE_EXT;
+        std::shared_ptr<StateExtConnector> stateExtConnector = std::make_shared<StateExtConnector>();
 
-        if (!m_stateExtConnector.configure(rf, m_basicInfo))
+        if (!stateExtConnector->configure(rf, m_basicInfo))
         {
             yError() << "Failed to configure the module to connect to the robot via the StateExt port.";
             return false;
         }
-    }
-    else
-    {
-        m_connectionType = ConnectionType::REMAPPER;
 
-        if (!m_remapperConnector.configure(rf, m_modelLoader.model(), m_basicInfo))
+        m_robotConnector = stateExtConnector;
+    }
+    else if (BasicConnector::RequestedType(rf) == ConnectionType::REMAPPER)
+    {
+        std::shared_ptr<RemapperConnector> remapperConnector = std::make_shared<RemapperConnector>();
+
+        if (!remapperConnector->configure(rf, m_modelLoader.model(), m_basicInfo))
         {
             yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
             return false;
         }
+
+        m_robotConnector = remapperConnector;
     }
 
     {
@@ -852,7 +831,7 @@ void idyntree_yarp_tools::Visualizer::close()
     m_viz.close();
     m_imagePort.close();
     m_rpcPort.close();
-    m_remapperConnector.close();
+    m_robotConnector->close();
     m_netExternalWrenchesPort.close();
 }
 
