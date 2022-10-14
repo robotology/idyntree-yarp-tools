@@ -26,12 +26,6 @@ namespace idyntree_yarp_tools {
 class Visualizer : public VisualizerCommands
 {
 
-    enum class ConnectionType
-    {
-        REMAPPER,
-        STATE_EXT
-    };
-
     std::shared_ptr<BasicInfo> m_basicInfo;
 
     iDynTree::ModelLoader m_modelLoader;

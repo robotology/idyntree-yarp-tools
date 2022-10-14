@@ -429,11 +429,6 @@ bool StateExtConnector::configure(const yarp::os::Searchable &inputConf, std::sh
     return true;
 }
 
-bool StateExtConnector::usingStateExt(const yarp::os::Searchable &inputConf)
-{
-    return inputConf.check("connectToStateExt");
-}
-
 bool StateExtConnector::connectToRobot()
 {
     m_connected = false;
@@ -569,6 +564,16 @@ StateExtConnector::EncodersInterface::~EncodersInterface()
         device->close();
         delete device;
     }
+}
+
+ConnectionType BasicConnector::requestedType(const yarp::os::Searchable &inputConf)
+{
+    if (inputConf.check("connectToStateExt"))
+    {
+        return ConnectionType::STATE_EXT;
+    }
+
+    return ConnectionType::REMAPPER;
 }
 
 }

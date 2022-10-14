@@ -15,6 +15,12 @@
 
 namespace idyntree_yarp_tools {
 
+enum class ConnectionType
+{
+    REMAPPER,
+    STATE_EXT
+};
+
 struct BasicInfo
 {
     std::string name;
@@ -26,7 +32,20 @@ struct BasicInfo
     std::mutex mutex;
 };
 
-class RemapperConnector
+class BasicConnector
+{
+public:
+
+    ConnectionType requestedType(const yarp::os::Searchable &inputConf);
+
+    virtual bool connectToRobot() = 0;
+
+    virtual bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad) = 0;
+
+    virtual void close() = 0;
+};
+
+class RemapperConnector : public BasicConnector
 {
 
     std::vector<std::string> m_controlBoards;
@@ -46,14 +65,14 @@ public:
 
     bool configure(const yarp::os::Searchable &inputConf, const iDynTree::Model& fullModel, std::shared_ptr<BasicInfo> basicInfo);
 
-    bool connectToRobot();
+    virtual bool connectToRobot() override;
 
-    bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad);
+    virtual bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad) override;
 
-    void close();
+    virtual void close() override;
 };
 
-class StateExtConnector
+class StateExtConnector : public BasicConnector
 {
     enum class JointType
     {
@@ -96,13 +115,11 @@ public:
 
     bool configure(const yarp::os::Searchable &inputConf, std::shared_ptr<BasicInfo> basicInfo);
 
-    bool usingStateExt(const yarp::os::Searchable &inputConf);
+    virtual bool connectToRobot() override;
 
-    bool connectToRobot();
+    virtual bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad) override;
 
-    bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad);
-
-    void close();
+    virtual void close() override;
 };
 
 
