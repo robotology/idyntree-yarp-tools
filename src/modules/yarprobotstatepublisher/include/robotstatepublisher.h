@@ -54,7 +54,7 @@ class YARPRobotStatePublisherModule : public yarp::os::RFModule
    iDynTree::FrameIndex m_baseFrameIndex;
    yarp::sig::Matrix m_buf4x4;
 
-   std::shared_ptr<JointStateConnector> m_connector{nullptr};
+   std::shared_ptr<BasicConnector> m_connector{nullptr};
    std::atomic<bool> m_useCallback{false}, m_publishedOnce{false};
 
    // Mutex protecting the method across the different threads

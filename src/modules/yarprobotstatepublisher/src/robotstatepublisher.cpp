@@ -96,9 +96,57 @@ bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
     iDynTree::ModelLoader modelLoader;
     bool ok = modelLoader.loadModelFromFile(pathToModel);
 
-    m_connector = std::make_shared<JointStateConnector>();
-    if (!m_connector->configure(rf, modelLoader.model(), basicInfo))
+    ConnectionType connection = BasicConnector::RequestedType(rf, ConnectionType::JOINT_STATE);
+
+    switch (connection)
     {
+    case ConnectionType::STATE_EXT:
+    {
+        std::shared_ptr<StateExtConnector> stateExtConnector = std::make_shared<StateExtConnector>();
+
+        if (!stateExtConnector->configure(rf, basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via the StateExt port.";
+            return false;
+        }
+
+        m_connector = stateExtConnector;
+        break;
+    }
+
+    case ConnectionType::REMAPPER:
+    {
+        std::shared_ptr<RemapperConnector> remapperConnector = std::make_shared<RemapperConnector>();
+
+        if (!remapperConnector->configure(rf, modelLoader.model(), basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
+            return false;
+        }
+
+        m_connector = remapperConnector;
+        break;
+    }
+
+    case ConnectionType::JOINT_STATE:
+    {
+        std::shared_ptr<JointStateConnector> jointStateConnector = std::make_shared<JointStateConnector>();
+
+        if (!jointStateConnector->configure(rf, modelLoader.model(), basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via JointState.";
+            return false;
+        }
+
+        jointStateConnector->setCallback([this](){this->onReadCallback();});
+        m_useCallback = true;
+
+        m_connector = jointStateConnector;
+        break;
+    }
+
+    default:
+        yError() << "The specified connector is not available for this module.";
         return false;
     }
 
@@ -198,9 +246,6 @@ bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
         return false;
     }
 
-    m_connector->setCallback([this](){this->onReadCallback();});
-    m_useCallback = true;
-
     if (!m_connector->connectToRobot())
     {
         yError() << "Failed to connect to the robot";
@@ -257,7 +302,7 @@ bool YARPRobotStatePublisherModule::updateModule()
     }
     else
     {
-        yInfoThrottle(5.0) << "YARPRobotStatePublisherModule running happily";
+        yInfoThrottle(10.0) << "YARPRobotStatePublisherModule running happily";
     }
 
     return true;
