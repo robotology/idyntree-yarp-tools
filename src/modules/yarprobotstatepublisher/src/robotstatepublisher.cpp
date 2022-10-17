@@ -41,7 +41,7 @@ bool YARPRobotStatePublisherModule::configureTransformServer(const std::string &
     }
     else pTransformclient_cfg.put("local", "/"+name+"/transformClient");
 
-    pTransformclient_cfg.put("remote", "/transformServer");
+    pTransformclient_cfg.put("remote",  rf.check("tf-remote", yarp::os::Value("/transformServer")).asString());
 
     m_tfPrefix = rf.check("tf-prefix", yarp::os::Value("")).asString();
 

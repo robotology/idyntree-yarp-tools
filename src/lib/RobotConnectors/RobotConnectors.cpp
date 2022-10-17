@@ -86,14 +86,24 @@ void BasicConnector::fillJointValuesInRad()
     }
 }
 
-ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputConf)
+ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputConf, ConnectionType defaultType)
 {
     if (inputConf.check("connectToStateExt"))
     {
         return ConnectionType::STATE_EXT;
     }
 
-    return ConnectionType::REMAPPER;
+    if (inputConf.check("connectToControlBoards"))
+    {
+        return ConnectionType::REMAPPER;
+    }
+
+    if (inputConf.check("connectToJointState"))
+    {
+        return ConnectionType::JOINT_STATE;
+    }
+
+    return defaultType;
 }
 
 /************************************************************/
@@ -739,11 +749,17 @@ bool JointStateConnector::connectToRobot()
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
+        std::string name;
+        {
+            std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+            name = m_basicInfo->name;
+        }
+
         if (!m_namePrefix.empty()) {
-            m_rosNode = std::make_unique<yarp::os::Node>("/"+m_namePrefix+"/yarprobotstatepublisher");
+            m_rosNode = std::make_unique<yarp::os::Node>("/"+m_namePrefix+"/" +name);
         }
         else {
-            m_rosNode = std::make_unique<yarp::os::Node>("/yarprobotstatepublisher");
+            m_rosNode = std::make_unique<yarp::os::Node>("/" + name);
         }
         // Setup the topic and configureisValid the onRead callback
         m_subscriber = std::make_unique<JointStateSubscriber>();

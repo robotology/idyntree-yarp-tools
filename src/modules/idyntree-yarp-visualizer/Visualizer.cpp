@@ -386,7 +386,11 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         m_basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    if (BasicConnector::RequestedType(rf) == ConnectionType::STATE_EXT)
+    ConnectionType connection = BasicConnector::RequestedType(rf, ConnectionType::REMAPPER);
+
+    switch (connection)
+    {
+    case ConnectionType::STATE_EXT:
     {
         std::shared_ptr<StateExtConnector> stateExtConnector = std::make_shared<StateExtConnector>();
 
@@ -397,8 +401,10 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         }
 
         m_robotConnector = stateExtConnector;
+        break;
     }
-    else if (BasicConnector::RequestedType(rf) == ConnectionType::REMAPPER)
+
+    case ConnectionType::REMAPPER:
     {
         std::shared_ptr<RemapperConnector> remapperConnector = std::make_shared<RemapperConnector>();
 
@@ -409,6 +415,26 @@ bool idyntree_yarp_tools::Visualizer::configure(const yarp::os::ResourceFinder &
         }
 
         m_robotConnector = remapperConnector;
+        break;
+    }
+
+    case ConnectionType::JOINT_STATE:
+    {
+        std::shared_ptr<JointStateConnector> jointStateConnector = std::make_shared<JointStateConnector>();
+
+        if (!jointStateConnector->configure(rf, m_modelLoader.model(), m_basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via JointState.";
+            return false;
+        }
+
+        m_robotConnector = jointStateConnector;
+        break;
+    }
+
+    default:
+        yError() << "The specified connector is not available for this module.";
+        return false;
     }
 
     {
@@ -678,6 +704,8 @@ bool idyntree_yarp_tools::Visualizer::neededHelp(const yarp::os::ResourceFinder 
                   << "                                                   In case --robot is \"icub\" or \"icubSim\" it is possible to use the following simplified syntax to connect to all the supported joints:" << std::endl
                   << "                                                   --connectToStateExt default" << std::endl
                   << "                                                   When using connectToStateExt, the --controlboards and --joints options are ignored;" << std::endl << std::endl
+                  << "--connectToJointState                              Specify to connect to jointState topic. The --controlboards option is ignored." << std::endl << std::endl
+                  << "--jointstates-topic                                Specify the topic name to connect when using --connectToJointState. Default: /joint_states" << std::endl << std::endl
                   << "--noNetExternalWrenches                            Avoid connecting to WholeBodyDynamics to retrieve the net external wrenches applied on the robot link;" << std::endl << std::endl
                   << "--netExternalWrenchesPortName <name>               The name of the WholeBodyDynamics port to retrieve the net external wrenches." << std::endl
                   << "                                                   The port is supposed to send a bottle of n pairs, where n is the number of links." << std::endl

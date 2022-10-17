@@ -21,6 +21,8 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <functional>
+#include <unordered_map>
 
 
 
@@ -29,7 +31,8 @@ namespace idyntree_yarp_tools {
 enum class ConnectionType
 {
     REMAPPER,
-    STATE_EXT
+    STATE_EXT,
+    JOINT_STATE
 };
 
 struct BasicInfo
@@ -60,7 +63,7 @@ protected:
 
 public:
 
-    static ConnectionType RequestedType(const yarp::os::Searchable &inputConf);
+    static ConnectionType RequestedType(const yarp::os::Searchable &inputConf, ConnectionType defaultType);
 
     virtual bool connectToRobot() = 0;
 
