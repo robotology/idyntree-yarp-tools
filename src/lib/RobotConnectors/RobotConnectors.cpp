@@ -1,3 +1,10 @@
+/******************************************************************************
+ *                                                                            *
+ * Copyright (C) 2022 Fondazione Istituto Italiano di Tecnologia (IIT)        *
+ * All Rights Reserved.                                                       *
+ *                                                                            *
+ ******************************************************************************/
+
 #include <yarp/os/LogStream.h>
 #include <iDynTree/Core/Utils.h>
 #include <yarp/dev/IAxisInfo.h>
@@ -6,7 +13,9 @@
 
 YARP_DECLARE_PLUGINS(ReadOnlyRemoteControlBoardLib);
 
-namespace idyntree_yarp_tools {
+using namespace idyntree_yarp_tools;
+
+/************************************************************/
 
 bool BasicConnector::getJointNamesFromModel(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
 {
@@ -86,6 +95,8 @@ ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputCo
 
     return ConnectionType::REMAPPER;
 }
+
+/************************************************************/
 
 bool RemapperConnector::getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf)
 {
@@ -219,6 +230,8 @@ void RemapperConnector::close()
         m_encodersInterface = nullptr;
     }
 }
+
+/************************************************************/
 
 bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 {
@@ -621,4 +634,158 @@ StateExtConnector::EncodersInterface::~EncodersInterface()
     }
 }
 
+/************************************************************/
+JointStateConnector::JointStateSubscriber::JointStateSubscriber()
+{
+
 }
+
+JointStateConnector::JointStateSubscriber::~JointStateSubscriber()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+}
+
+void JointStateConnector::JointStateSubscriber::attach(JointStateConnector *connector)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_connector = connector;
+}
+
+void JointStateConnector::JointStateSubscriber::onRead(yarp::rosmsg::sensor_msgs::JointState& v)
+{
+    yarp::os::Subscriber<yarp::rosmsg::sensor_msgs::JointState>::onRead(v);
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    if (m_connector)
+        m_connector->onRead(v);
+}
+
+void JointStateConnector::onRead(yarp::rosmsg::sensor_msgs::JointState &v)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (!m_connected)
+            return;
+
+        for (size_t i=0; i < v.name.size(); i++)
+        {
+
+            auto jointIndex_it = m_nameToIndexMap.find(v.name[i]);
+            if (jointIndex_it != m_nameToIndexMap.end())
+            {
+                m_jointsInRad(jointIndex_it->second) = v.position[i];
+            }
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+
+        if (!m_connected)
+            return;
+
+        //Update the joint values
+        if (m_callback)
+        {
+            m_callback();
+        }
+    }
+}
+
+void JointStateConnector::setCallback(std::function<void ()> callback)
+{
+    std::lock_guard<std::mutex> lock(m_callbackMutex);
+
+    m_callback = callback;
+}
+
+bool JointStateConnector::configure(const yarp::os::Searchable &inputConf, const iDynTree::Model &fullModel, std::shared_ptr<BasicInfo> basicInfo)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    m_basicInfo = basicInfo;
+
+    if (!m_basicInfo)
+    {
+        yError() << "Basic info pointer not set.";
+        return false;
+    }
+
+    m_namePrefix = inputConf.check("name-prefix", yarp::os::Value("")).asString();
+    m_jointStatesTopicName = inputConf.check("jointstates-topic", yarp::os::Value("/joint_states")).asString();
+
+    if (!getJointNamesFromModel(inputConf, fullModel))
+    {
+        yError() << "Failed to get the list of joints.";
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+        for (size_t i = 0; i < m_basicInfo->jointList.size(); ++i)
+        {
+            m_nameToIndexMap[m_basicInfo->jointList[i]] = i;
+        }
+    }
+
+    return true;
+}
+
+bool JointStateConnector::connectToRobot()
+{
+    this->close();
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (!m_namePrefix.empty()) {
+            m_rosNode = std::make_unique<yarp::os::Node>("/"+m_namePrefix+"/yarprobotstatepublisher");
+        }
+        else {
+            m_rosNode = std::make_unique<yarp::os::Node>("/yarprobotstatepublisher");
+        }
+        // Setup the topic and configureisValid the onRead callback
+        m_subscriber = std::make_unique<JointStateSubscriber>();
+        m_subscriber->attach(this);
+
+        if (!m_subscriber->topic(m_jointStatesTopicName))
+        {
+            return false;
+        }
+        m_subscriber->useCallback();
+    }
+
+    m_connected = true;
+    return true;
+}
+
+bool JointStateConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad)
+{
+    if (!m_connected)
+        return false;
+
+    std::lock_guard<std::mutex> lock(m_mutex);
+    jointValuesInRad = m_jointsInRad;
+
+    return true;
+}
+
+void JointStateConnector::close()
+{
+    m_connected = false;
+    {
+        std::lock_guard<std::mutex> lockCallback(m_callbackMutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_subscriber)
+        {
+            m_subscriber->interrupt();
+            m_subscriber->disableCallback();
+            m_subscriber->close();
+        }
+        m_rosNode = nullptr;
+        m_subscriber = nullptr;
+    }
+}
+
+/************************************************************/

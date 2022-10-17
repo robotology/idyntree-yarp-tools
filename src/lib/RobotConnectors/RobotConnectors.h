@@ -1,8 +1,18 @@
+/******************************************************************************
+ *                                                                            *
+ * Copyright (C) 2022 Fondazione Istituto Italiano di Tecnologia (IIT)        *
+ * All Rights Reserved.                                                       *
+ *                                                                            *
+ ******************************************************************************/
+
 #ifndef  IDYNTREE_YARP_ROBOTCONNECTORS_H
 #define  IDYNTREE_YARP_ROBOTCONNECTORS_H
 
 #include <yarp/dev/PolyDriver.h>
 #include <yarp/dev/IEncodersTimed.h>
+#include <yarp/rosmsg/sensor_msgs/JointState.h>
+#include <yarp/os/Node.h>
+#include <yarp/os/Subscriber.h>
 #include <iDynTree/Core/VectorDynSize.h>
 #include <iDynTree/Model/Model.h>
 #include <mutex>
@@ -11,6 +21,7 @@
 #include <string>
 #include <map>
 #include <memory>
+
 
 
 namespace idyntree_yarp_tools {
@@ -31,6 +42,8 @@ struct BasicInfo
 
     std::mutex mutex;
 };
+
+/************************************************************/
 
 class BasicConnector
 {
@@ -56,6 +69,8 @@ public:
     virtual void close() = 0;
 };
 
+/************************************************************/
+
 class RemapperConnector : public BasicConnector
 {
 
@@ -75,6 +90,8 @@ public:
 
     virtual void close() override;
 };
+
+/************************************************************/
 
 class StateExtConnector : public BasicConnector
 {
@@ -123,8 +140,65 @@ public:
     virtual void close() override;
 };
 
+/************************************************************/
+
+class JointStateConnector: public BasicConnector
+{
+private:
+
+    class JointStateSubscriber: public yarp::os::Subscriber<yarp::rosmsg::sensor_msgs::JointState>
+    {
+    private:
+        // Mutex protecting the method across the different threads
+        std::mutex m_mutex;
+
+        JointStateConnector* m_connector{nullptr};
+
+    public:
+        JointStateSubscriber();
+
+        ~JointStateSubscriber();
+
+        JointStateSubscriber(const JointStateSubscriber&) = delete;
+        JointStateSubscriber(JointStateSubscriber&&) = delete;
+        JointStateSubscriber& operator=(const JointStateSubscriber&) = delete;
+        JointStateSubscriber& operator=(JointStateSubscriber&&) = delete;
+
+        void attach(JointStateConnector* connector);
+
+        virtual void onRead(yarp::rosmsg::sensor_msgs::JointState &v) override;
+    };
+
+    // Mutex protecting the method across the different threads
+    std::mutex m_mutex;
+    std::mutex m_callbackMutex;
+
+    std::function<void()> m_callback;
+
+    // /JointState topic scruscriber
+    std::unique_ptr<yarp::os::Node> m_rosNode{nullptr};
+    std::unique_ptr<JointStateSubscriber> m_subscriber{nullptr};
+    std::string m_jointStatesTopicName;
+    std::string m_namePrefix;
+    std::unordered_map<std::string, size_t> m_nameToIndexMap;
+    std::atomic<bool> m_connected{false};
+
+    void onRead(yarp::rosmsg::sensor_msgs::JointState &v);
+
+public:
+    void setCallback(std::function<void()> callback);
+
+    bool configure(const yarp::os::Searchable &inputConf, const iDynTree::Model& fullModel, std::shared_ptr<BasicInfo> basicInfo);
+
+    virtual bool connectToRobot() override;
+
+    virtual bool getJointValues(iDynTree::VectorDynSize& jointValuesInRad) override;
+
+    virtual void close() override;
+};
+
+/************************************************************/
 
 }
-
 
 #endif //  IDYNTREE_YARP_ROBOTCONNECTORS_H
