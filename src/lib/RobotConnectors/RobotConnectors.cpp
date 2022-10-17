@@ -8,42 +8,14 @@ YARP_DECLARE_PLUGINS(ReadOnlyRemoteControlBoardLib);
 
 namespace idyntree_yarp_tools {
 
-bool RemapperConnector::getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf)
+bool BasicConnector::getJointNamesFromModel(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
 {
-    m_controlBoards.clear();
-    yarp::os::Value controlBoardsValue = inputConf.find("controlboards");
-
-    if (controlBoardsValue.isNull())
+    if (!m_basicInfo)
     {
-        m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"}; //assumes these as controlboards
-    }
-    else
-    {
-        if (!controlBoardsValue.isList())
-        {
-            yError() << "controlBoards is specified, but it is not a list.";
-            return false;
-        }
-
-        yarp::os::Bottle* controlBoardsList = controlBoardsValue.asList();
-
-        for (size_t i = 0; i < controlBoardsList->size(); ++i)
-        {
-            yarp::os::Value cbValue = controlBoardsList->get(i);
-            if (!cbValue.isString())
-            {
-                yError() << "The value in position" << i << "(0-based) of controlBoards is not a string.";
-                return false;
-            }
-            m_controlBoards.push_back(cbValue.asString());
-        }
+        yError() << "Basic info pointer not set.";
+        return false;
     }
 
-    return true;
-}
-
-bool RemapperConnector::getJointNamesFromModel(const yarp::os::Searchable &inputConf, const iDynTree::Model &model)
-{
     std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
 
     m_basicInfo->jointList.clear();
@@ -92,6 +64,60 @@ bool RemapperConnector::getJointNamesFromModel(const yarp::os::Searchable &input
     m_jointsInDeg.resize(m_basicInfo->jointList.size());
     m_jointsInDeg.zero();
 
+    m_jointsInRad = m_jointsInDeg;
+
+    return true;
+}
+
+void BasicConnector::fillJointValuesInRad()
+{
+    for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
+    {
+        m_jointsInRad(i) = iDynTree::deg2rad(m_jointsInDeg(i));
+    }
+}
+
+ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputConf)
+{
+    if (inputConf.check("connectToStateExt"))
+    {
+        return ConnectionType::STATE_EXT;
+    }
+
+    return ConnectionType::REMAPPER;
+}
+
+bool RemapperConnector::getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf)
+{
+    m_controlBoards.clear();
+    yarp::os::Value controlBoardsValue = inputConf.find("controlboards");
+
+    if (controlBoardsValue.isNull())
+    {
+        m_controlBoards = {"head", "torso", "left_arm", "right_arm", "left_leg", "right_leg"}; //assumes these as controlboards
+    }
+    else
+    {
+        if (!controlBoardsValue.isList())
+        {
+            yError() << "controlBoards is specified, but it is not a list.";
+            return false;
+        }
+
+        yarp::os::Bottle* controlBoardsList = controlBoardsValue.asList();
+
+        for (size_t i = 0; i < controlBoardsList->size(); ++i)
+        {
+            yarp::os::Value cbValue = controlBoardsList->get(i);
+            if (!cbValue.isString())
+            {
+                yError() << "The value in position" << i << "(0-based) of controlBoards is not a string.";
+                return false;
+            }
+            m_controlBoards.push_back(cbValue.asString());
+        }
+    }
+
     return true;
 }
 
@@ -122,6 +148,12 @@ bool RemapperConnector::connectToRobot()
 
     std::lock_guard<std::mutex> lock(m_mutex);
     {
+        if (!m_basicInfo)
+        {
+            yError() << "Basic info pointer not set.";
+            return false;
+        }
+
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
         //First make sure to reset the device in case it was already opened.
         m_robotDevice.close();
@@ -171,10 +203,8 @@ bool RemapperConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
 
         if (m_encodersInterface->getEncoders(m_jointsInDeg.data()))
         {
-            for (size_t i = 0; i < m_jointsInDeg.size(); ++i)
-            {
-                jointValuesInRad(i) = iDynTree::deg2rad(m_jointsInDeg(i));
-            }
+            fillJointValuesInRad();
+            jointValuesInRad = m_jointsInRad;
         }
     }
     return true;
@@ -192,6 +222,12 @@ void RemapperConnector::close()
 
 bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 {
+    if (!m_basicInfo)
+    {
+        yError() << "Basic info pointer not set.";
+        return false;
+    }
+
     m_cb_jointsMap.clear();
     std::vector<std::string> jointNamesVector;
 
@@ -359,8 +395,12 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
         {
             m_cb_jointsMap.back().jointsToConsider = m_cb_jointsMap.back().joints.size();
         }
-
     }
+
+    m_jointsInDeg.resize(jointNamesVector.size());
+    m_jointsInDeg.zero();
+
+    m_jointsInRad = m_jointsInDeg;
 
     {
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
@@ -375,6 +415,12 @@ bool StateExtConnector::configure(const yarp::os::Searchable &inputConf, std::sh
     std::lock_guard<std::mutex> lock(m_mutex);
 
     m_basicInfo = basicInfo;
+
+    if (!m_basicInfo)
+    {
+        yError() << "Basic info pointer not set.";
+        return false;
+    }
 
     yarp::os::Value confValue = inputConf.find("connectToStateExt");
 
@@ -434,6 +480,12 @@ bool StateExtConnector::connectToRobot()
     m_connected = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (!m_basicInfo)
+        {
+            yError() << "Basic info pointer not set.";
+            return false;
+        }
 
         YARP_REGISTER_PLUGINS(ReadOnlyRemoteControlBoardLib);
 
@@ -532,7 +584,7 @@ bool StateExtConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
                 {
                     for (size_t i = 0; i < m_encodersInterfaces[cb].jointsToConsider; ++i)
                     {
-                        jointValuesInRad(currentPosition) = iDynTree::deg2rad(m_encodersInterfaces[cb].jointsBuffer(i));
+                        m_jointsInDeg(currentPosition) = m_encodersInterfaces[cb].jointsBuffer(i);
                         currentPosition++;
                     }
                 }
@@ -544,6 +596,9 @@ bool StateExtConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
     {
         close(); //It is important to do this after unlocking the mutex to avoid deadlocks.
     }
+
+    fillJointValuesInRad();
+    jointValuesInRad = m_jointsInRad;
 
     return true;
 }
@@ -564,16 +619,6 @@ StateExtConnector::EncodersInterface::~EncodersInterface()
         device->close();
         delete device;
     }
-}
-
-ConnectionType BasicConnector::RequestedType(const yarp::os::Searchable &inputConf)
-{
-    if (inputConf.check("connectToStateExt"))
-    {
-        return ConnectionType::STATE_EXT;
-    }
-
-    return ConnectionType::REMAPPER;
 }
 
 }

@@ -34,6 +34,17 @@ struct BasicInfo
 
 class BasicConnector
 {
+protected:
+    iDynTree::VectorDynSize m_jointsInDeg;
+    iDynTree::VectorDynSize m_jointsInRad;
+    std::shared_ptr<BasicInfo> m_basicInfo;
+    std::atomic<bool> m_connected{false};
+    std::mutex m_mutex;
+
+    bool getJointNamesFromModel(const yarp::os::Searchable &inputConf, const iDynTree::Model& model);
+
+    void fillJointValuesInRad();
+
 public:
 
     static ConnectionType RequestedType(const yarp::os::Searchable &inputConf);
@@ -51,15 +62,8 @@ class RemapperConnector : public BasicConnector
     std::vector<std::string> m_controlBoards;
     yarp::dev::PolyDriver m_robotDevice;
     yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
-    std::atomic<bool> m_connected{false};
-    iDynTree::VectorDynSize m_jointsInDeg;
-    std::shared_ptr<BasicInfo> m_basicInfo;
-    std::mutex m_mutex;
 
     bool getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf);
-
-    bool getJointNamesFromModel(const yarp::os::Searchable &inputConf, const iDynTree::Model& model);
-
 
 public:
 
@@ -105,9 +109,6 @@ class StateExtConnector : public BasicConnector
 
     std::vector<ControlBoardInfo> m_cb_jointsMap;
     std::vector<EncodersInterface> m_encodersInterfaces;
-    std::atomic<bool> m_connected{false};
-    std::shared_ptr<BasicInfo> m_basicInfo;
-    std::mutex m_mutex;
 
     bool getAxesDescription(const yarp::os::Value &inputValue);
 
