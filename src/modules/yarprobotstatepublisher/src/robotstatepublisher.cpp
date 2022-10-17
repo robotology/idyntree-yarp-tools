@@ -34,6 +34,16 @@ using namespace yarp::math;
 using namespace idyntree_yarp_tools;
 
 /************************************************************/
+JointStateConnector::JointStateSubscriber::JointStateSubscriber()
+{
+
+}
+
+JointStateConnector::JointStateSubscriber::~JointStateSubscriber()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+}
+
 void JointStateConnector::JointStateSubscriber::attach(JointStateConnector *connector)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -54,6 +64,10 @@ void JointStateConnector::onRead(yarp::rosmsg::sensor_msgs::JointState &v)
 {
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (!m_connected)
+            return;
+
         for (size_t i=0; i < v.name.size(); i++)
         {
 
@@ -67,6 +81,10 @@ void JointStateConnector::onRead(yarp::rosmsg::sensor_msgs::JointState &v)
 
     {
         std::lock_guard<std::mutex> lock(m_callbackMutex);
+
+        if (!m_connected)
+            return;
+
         //Update the joint values
         if (m_callback)
         {
@@ -94,19 +112,8 @@ bool JointStateConnector::configure(const yarp::os::Searchable &inputConf, const
         return false;
     }
 
-    string namePrefix = inputConf.check("name-prefix",Value("")).asString();
-
-    if (!namePrefix.empty()) {
-        m_rosNode = std::make_unique<yarp::os::Node>("/"+namePrefix+"/yarprobotstatepublisher");
-    }
-    else {
-        m_rosNode = std::make_unique<yarp::os::Node>("/yarprobotstatepublisher");
-    }
-
-    // Setup the topic and configureisValid the onRead callback
+    m_namePrefix = inputConf.check("name-prefix",Value("")).asString();
     m_jointStatesTopicName = inputConf.check("jointstates-topic",Value("/joint_states")).asString();
-    m_subscriber = std::make_unique<JointStateSubscriber>();
-    m_subscriber->attach(this);
 
     if (!getJointNamesFromModel(inputConf, fullModel))
     {
@@ -130,6 +137,17 @@ bool JointStateConnector::connectToRobot()
     this->close();
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+
+        if (!m_namePrefix.empty()) {
+            m_rosNode = std::make_unique<yarp::os::Node>("/"+m_namePrefix+"/yarprobotstatepublisher");
+        }
+        else {
+            m_rosNode = std::make_unique<yarp::os::Node>("/yarprobotstatepublisher");
+        }
+        // Setup the topic and configureisValid the onRead callback
+        m_subscriber = std::make_unique<JointStateSubscriber>();
+        m_subscriber->attach(this);
+
         if (!m_subscriber->topic(m_jointStatesTopicName))
         {
             return false;
@@ -154,13 +172,19 @@ bool JointStateConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInR
 
 void JointStateConnector::close()
 {
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_subscriber->interrupt();
-        m_subscriber->disableCallback();
-        m_subscriber->close();
-    }
     m_connected = false;
+    {
+        std::lock_guard<std::mutex> lockCallback(m_callbackMutex);
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (m_subscriber)
+        {
+            m_subscriber->interrupt();
+            m_subscriber->disableCallback();
+            m_subscriber->close();
+        }
+        m_rosNode = nullptr;
+        m_subscriber = nullptr;
+    }
 }
 
 /************************************************************/

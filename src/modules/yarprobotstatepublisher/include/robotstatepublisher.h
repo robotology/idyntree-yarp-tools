@@ -47,6 +47,14 @@ private:
         JointStateConnector* m_connector{nullptr};
 
     public:
+        JointStateSubscriber();
+
+        ~JointStateSubscriber();
+
+        JointStateSubscriber(const JointStateSubscriber&) = delete;
+        JointStateSubscriber(JointStateSubscriber&&) = delete;
+        JointStateSubscriber& operator=(const JointStateSubscriber&) = delete;
+        JointStateSubscriber& operator=(JointStateSubscriber&&) = delete;
 
         void attach(JointStateConnector* connector);
 
@@ -63,6 +71,7 @@ private:
     std::unique_ptr<yarp::os::Node> m_rosNode{nullptr};
     std::unique_ptr<JointStateSubscriber> m_subscriber{nullptr};
     std::string m_jointStatesTopicName;
+    std::string m_namePrefix;
     std::unordered_map<std::string, size_t> m_nameToIndexMap;
     std::atomic<bool> m_connected{false};
 
