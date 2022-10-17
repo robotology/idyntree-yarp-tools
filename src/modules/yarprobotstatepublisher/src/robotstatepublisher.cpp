@@ -26,11 +26,6 @@
 
 #include "robotstatepublisher.h"
 
-using namespace std;
-using namespace yarp::os;
-using namespace yarp::dev;
-using namespace yarp::sig;
-using namespace yarp::math;
 using namespace idyntree_yarp_tools;
 
 /************************************************************/
@@ -112,8 +107,8 @@ bool JointStateConnector::configure(const yarp::os::Searchable &inputConf, const
         return false;
     }
 
-    m_namePrefix = inputConf.check("name-prefix",Value("")).asString();
-    m_jointStatesTopicName = inputConf.check("jointstates-topic",Value("/joint_states")).asString();
+    m_namePrefix = inputConf.check("name-prefix", yarp::os::Value("")).asString();
+    m_jointStatesTopicName = inputConf.check("jointstates-topic", yarp::os::Value("/joint_states")).asString();
 
     if (!getJointNamesFromModel(inputConf, fullModel))
     {
@@ -188,12 +183,12 @@ void JointStateConnector::close()
 }
 
 /************************************************************/
-bool YARPRobotStatePublisherModule::configureTransformServer(const string &name, const yarp::os::Searchable &rf)
+bool YARPRobotStatePublisherModule::configureTransformServer(const std::string &name, const yarp::os::Searchable &rf)
 {
 
-    string namePrefix = rf.check("name-prefix",Value("")).asString();
+    std::string namePrefix = rf.check("name-prefix", yarp::os::Value("")).asString();
 
-    Property pTransformclient_cfg;
+    yarp::os::Property pTransformclient_cfg;
     pTransformclient_cfg.put("device", "transformClient");
     if (!namePrefix.empty()) {
         pTransformclient_cfg.put("local", "/"+namePrefix+"/"+name+"/transformClient");
@@ -202,7 +197,7 @@ bool YARPRobotStatePublisherModule::configureTransformServer(const string &name,
 
     pTransformclient_cfg.put("remote", "/transformServer");
 
-    m_tfPrefix = rf.check("tf-prefix",Value("")).asString();
+    m_tfPrefix = rf.check("tf-prefix", yarp::os::Value("")).asString();
 
     bool ok_client = m_ddtransformclient.open(pTransformclient_cfg);
     if (!ok_client)
@@ -230,7 +225,7 @@ YARPRobotStatePublisherModule::YARPRobotStatePublisherModule(): m_iframetrans(nu
 
 
 /************************************************************/
-bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
+bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -244,9 +239,9 @@ bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
         basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    string modelFileName=rf.check("model",Value("model.urdf")).asString();
+    std::string modelFileName=rf.check("model", yarp::os::Value("model.urdf")).asString();
     // Open the model
-    string pathToModel=rf.findFileByName(modelFileName);
+    std::string pathToModel=rf.findFileByName(modelFileName);
 
     if (pathToModel == "")
     {
@@ -287,8 +282,8 @@ bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
         m_jointPos.zero();
     }
 
-    m_period=rf.check("period",Value(0.010)).asFloat64();
-    m_treeType=rf.check("tree-type", Value("SHALLOW")).asString();
+    m_period=rf.check("period", yarp::os::Value(0.010)).asFloat64();
+    m_treeType=rf.check("tree-type", yarp::os::Value("SHALLOW")).asString();
     if(m_treeType != "SHALLOW" && m_treeType != "DEEP")
     {
         yError("Wrong tree format. The only allowed values are \"SHALLOW\" or \"DEEP\"");

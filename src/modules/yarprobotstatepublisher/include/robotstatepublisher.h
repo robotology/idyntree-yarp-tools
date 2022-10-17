@@ -30,6 +30,7 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <string>
 
 /****************************************************************/
 namespace idyntree_yarp_tools {
