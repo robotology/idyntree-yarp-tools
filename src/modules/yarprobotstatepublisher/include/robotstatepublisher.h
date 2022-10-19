@@ -49,7 +49,7 @@ class YARPRobotStatePublisherModule : public yarp::os::RFModule
 
     // Class for computing forward kinematics
    iDynTree::KinDynComputations m_kinDynComp;
-   iDynTree::VectorDynSize m_jointPos;
+   iDynTree::VectorDynSize m_jointPos, m_jointOffsets;
    std::string m_baseFrameName;
    iDynTree::FrameIndex m_baseFrameIndex;
    yarp::sig::Matrix m_buf4x4;

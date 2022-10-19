@@ -17,12 +17,14 @@
 #include <iostream>
 #include <iomanip>
 
+#include <Eigen/Dense>
 #include <yarp/math/Math.h>
 
 #include <iDynTree/ModelIO/ModelLoader.h>
 #include <iDynTree/KinDynComputations.h>
 #include <iDynTree/Model/Traversal.h>
 #include <iDynTree/yarp/YARPConversions.h>
+#include <iDynTree/Core/EigenHelpers.h>
 
 #include "robotstatepublisher.h"
 
@@ -172,6 +174,56 @@ bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
 
         // Initilize the joint pos buffer to Zero
         m_jointPos.zero();
+        m_jointOffsets = m_jointPos;
+
+        yarp::os::Value jointOffsetsValue = rf.find("joint-offsets-deg");
+        if (jointOffsetsValue.isList())
+        {
+            yarp::os::Bottle* jointOffsetsList = jointOffsetsValue.asList();
+            for (size_t i = 0 ; i < jointOffsetsList->size(); ++i)
+            {
+                yarp::os::Value offsetValue = jointOffsetsList->get(i);
+                if (!offsetValue.isList())
+                {
+                    yWarning() << "The element at position" << i <<"in joint-offsets is not a list.";
+                    continue;
+                }
+                yarp::os::Bottle* offsetBottle = offsetValue.asList();
+                if (offsetBottle->size() != 2)
+                {
+                    yWarning() << "The element at position" << i <<"in joint-offsets-deg is not a list of two elements.";
+                    continue;
+                }
+
+                if (!offsetBottle->get(0).isString())
+                {
+                    yWarning() << "The first element at position" << i <<"in joint-offsets-deg is not a string.";
+                    continue;
+                }
+
+                if (!offsetBottle->get(1).isFloat64() && !offsetBottle->get(1).isInt64() && !offsetBottle->get(1).isInt32())
+                {
+                    yWarning() << "The second element at position" << i << "("<< offsetBottle->get(0).asString() << ") in joint-offsets-deg is not a number.";
+                    continue;
+                }
+
+                auto jointIt = std::find(basicInfo->jointList.begin(), basicInfo->jointList.end(), offsetBottle->get(0).asString());
+
+                if (jointIt == basicInfo->jointList.end())
+                {
+                    yWarning() << "Specified an offset for the joint" << offsetBottle->get(0).asString() << "but it is not in the joint list.";
+                    continue;
+                }
+
+                yInfo() << "Adding an offset of" << offsetBottle->get(1).asFloat64() << "to" << offsetBottle->get(0).asString();
+
+                m_jointOffsets(std::distance(basicInfo->jointList.begin(), jointIt)) = iDynTree::deg2rad(offsetBottle->get(1).asFloat64());
+            }
+        }
+        else
+        {
+            yWarning() << "joint-offsets found, but it is not a list.";
+        }
     }
 
     m_period=rf.check("period", yarp::os::Value(0.010)).asFloat64();
@@ -321,6 +373,8 @@ void YARPRobotStatePublisherModule::onReadCallback()
 
     if (!m_connector->getJointValues(m_jointPos))
         return;
+
+    iDynTree::toEigen(m_jointPos) = iDynTree::toEigen(m_jointPos) + iDynTree::toEigen(m_jointOffsets);
 
     const iDynTree::Model& model = m_kinDynComp.model();
 
