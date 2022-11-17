@@ -28,7 +28,6 @@
 #include <yarp/dev/PolyDriver.h>
 #include <yarp/dev/ControlBoardInterfacesImpl.h>
 #include <yarp/dev/ControlBoardHelpers.h>
-#include <yarp/dev/PreciselyTimed.h>
 
 #include <yarp/dev/impl/jointData.h>
 
