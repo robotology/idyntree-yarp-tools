@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <Utilities.h>
 #include "RobotConnectors.h"
+#include <thrifts/VectorsCollection.h>
 
 
 namespace idyntree_yarp_tools {
@@ -63,7 +64,7 @@ class Visualizer : public VisualizerCommands
     std::atomic<bool> m_connectedToWBD{true};
 
     std::string m_remoteNextExternalWrenchesPortName;
-    yarp::os::BufferedPort<yarp::os::Bottle> m_netExternalWrenchesPort;
+    yarp::os::BufferedPort<VectorsCollection> m_netExternalWrenchesPort;
 
     struct VisualizedWrench
     {

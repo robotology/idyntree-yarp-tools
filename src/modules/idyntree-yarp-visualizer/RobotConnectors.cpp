@@ -243,13 +243,13 @@ bool StateExtConnector::getAxesDescription(const yarp::os::Value &inputValue)
 
             if (cbNameList->size() == 2)
             {
-                if (!cbNameList->get(1).isInt())
+                if (!cbNameList->get(1).isInt32())
                 {
                     yError() << "The element in position" << i << "(0-based) of the connectToStateExt list is a malformed list. The second element is supposed to be int defining the number of considered joints.";
                     return false;
                 }
 
-                m_cb_jointsMap.back().jointsToConsider = cbNameList->get(1).asInt();
+                m_cb_jointsMap.back().jointsToConsider = cbNameList->get(1).asInt32();
             }
         }
         else
@@ -471,11 +471,11 @@ bool StateExtConnector::connectToRobot()
                 switch (joint.type)
                 {
                 case JointType::PRISMATIC:
-                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_PRISMATIC);
+                    axis.addVocab32(yarp::dev::VOCAB_JOINTTYPE_PRISMATIC);
                     break;
 
                 case JointType::REVOLUTE:
-                    axis.addVocab(yarp::dev::VOCAB_JOINTTYPE_REVOLUTE);
+                    axis.addVocab32(yarp::dev::VOCAB_JOINTTYPE_REVOLUTE);
                     break;
                 }
 

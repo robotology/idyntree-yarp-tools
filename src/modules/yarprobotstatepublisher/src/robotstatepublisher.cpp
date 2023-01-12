@@ -78,7 +78,7 @@ bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
     }
 
     string modelFileName=rf.check("model",Value("model.urdf")).asString();
-    m_period=rf.check("period",Value(0.010)).asDouble();
+    m_period=rf.check("period",Value(0.010)).asFloat64();
     m_treeType=rf.check("tree-type", Value("SHALLOW")).asString();
     if(m_treeType != "SHALLOW" && m_treeType != "DEEP")
     {

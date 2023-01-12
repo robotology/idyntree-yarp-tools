@@ -26,7 +26,7 @@ void idyntree_yarp_tools::Visualizer::connectToTheRobot()
 
     if (m_useWBD)
     {
-        m_connectedToWBD = yarp::os::Network::connect(m_remoteNextExternalWrenchesPortName, m_netExternalWrenchesPort.getName());
+        m_connectedToWBD = yarp::os::Network::connect(m_remoteNextExternalWrenchesPortName, m_netExternalWrenchesPort.getName(), "fast_tcp");
     }
 
 }
@@ -289,37 +289,27 @@ void idyntree_yarp_tools::Visualizer::updateWrenchesVisualization()
 
     if (m_connectedToWBD)
     {
-        yarp::os::Bottle* bottle = m_netExternalWrenchesPort.read(false);
-        if (bottle)
+        VectorsCollection* data = m_netExternalWrenchesPort.read(false);
+        if (data)
         {
-            for (size_t link = 0; link < bottle->size(); ++link)
+            for (const auto& [linkName, wrench]: data->vectors)
             {
-                yarp::os::Bottle* wrenchPair = bottle->get(link).asList();
-                if (!wrenchPair || wrenchPair->size() != 2)
-                {
-                    return;
-                }
-
-                std::string linkName = wrenchPair->get(0).asString();
-                yarp::os::Bottle* wrenchBottle = wrenchPair->get(1).asList();
-
-                if (!wrenchBottle || wrenchBottle->size() != 6)
+                if(wrench.size() != 6)
                 {
                     return;
                 }
 
                 VisualizedWrench& vizWrench = m_netExternalWrenchesMap[linkName];
-
                 vizWrench.inactivityCounter = 0;
 
                 for (size_t i = 0; i < 3; ++i)
                 {
-                    vizWrench.scaledWrench(i) = m_forceMultiplier * wrenchBottle->get(i).asFloat64();
+                    vizWrench.scaledWrench(i) = m_forceMultiplier * wrench[i];
                 }
 
                 for (size_t i = 3; i < 6; ++i)
                 {
-                    vizWrench.scaledWrench(i) = m_torquesMultiplier * wrenchBottle->get(i).asFloat64();
+                    vizWrench.scaledWrench(i) = m_torquesMultiplier * wrench[i];
                 }
 
                 if ((vizWrench.frameIndex == iDynTree::FRAME_INVALID_INDEX) && !vizWrench.skip) //the link has never been checked in the model

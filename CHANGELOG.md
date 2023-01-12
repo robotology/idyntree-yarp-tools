@@ -5,6 +5,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.0.6] - 2022-09-13
+
+### Changed
+- idyntree-yarp-visualizer : Read the net external wrenches using a vector collection matching the change done in `whole-body-estimators` 0.9.0 in https://github.com/robotology/whole-body-estimators/pull/155 (https://github.com/robotology/idyntree-yarp-tools/pull/38).
+
+### Fixed
+- Remove use of deprecated YARP headers and classes to ensure compatibility with YARP 3.8 (https://github.com/robotology/idyntree-yarp-tools/pull/32, https://github.com/robotology/idyntree-yarp-tools/pull/33).
+
+## [0.0.5] - 2022-05-27
+
+### Fixed
+- Fixed compatibility with YARP 3.7 (https://github.com/robotology/idyntree-yarp-tools/pull/30).
+
 ## [0.0.4] - 2022-02-09
 
 ### Fixed
