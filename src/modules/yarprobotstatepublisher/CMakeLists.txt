@@ -13,8 +13,9 @@ target_link_libraries(yarprobotstatepublisher
     YARP::YARP_init
     YARP::YARP_os
     YARP::YARP_dev
-    YARP::YARP_rosmsg
     iDynTree::idyntree-high-level
-    iDynTree::idyntree-yarp)
+    iDynTree::idyntree-yarp
+    Eigen3::Eigen
+    idyntree-yarp-robot-connectors)
 
 install(TARGETS yarprobotstatepublisher DESTINATION bin)

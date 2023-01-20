@@ -16,7 +16,7 @@
 #include "robotstatepublisher.h"
 
 using namespace std;
-
+using namespace idyntree_yarp_tools;
 
 /****************************************************************/
 int main(int argc, char *argv[])

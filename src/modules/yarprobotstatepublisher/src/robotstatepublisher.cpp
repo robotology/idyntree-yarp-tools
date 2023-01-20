@@ -17,39 +17,52 @@
 #include <iostream>
 #include <iomanip>
 
+#include <Eigen/Dense>
 #include <yarp/math/Math.h>
 
 #include <iDynTree/ModelIO/ModelLoader.h>
 #include <iDynTree/KinDynComputations.h>
 #include <iDynTree/Model/Traversal.h>
 #include <iDynTree/yarp/YARPConversions.h>
+#include <iDynTree/Core/EigenHelpers.h>
 
 #include "robotstatepublisher.h"
 
-using namespace std;
-using namespace yarp::os;
-using namespace yarp::dev;
-using namespace yarp::sig;
-using namespace yarp::math;
+using namespace idyntree_yarp_tools;
 
-/************************************************************/
-JointStateSubscriber::JointStateSubscriber(): m_module(nullptr)
+
+bool YARPRobotStatePublisherModule::configureTransformServer(const std::string &name, const yarp::os::Searchable &rf)
 {
+
+    std::string namePrefix = rf.check("name-prefix", yarp::os::Value("")).asString();
+
+    yarp::os::Property pTransformclient_cfg;
+    pTransformclient_cfg.put("device", "transformClient");
+    if (!namePrefix.empty()) {
+        pTransformclient_cfg.put("local", "/"+namePrefix+"/"+name+"/transformClient");
+    }
+    else pTransformclient_cfg.put("local", "/"+name+"/transformClient");
+
+    pTransformclient_cfg.put("remote",  rf.check("tf-remote", yarp::os::Value("/transformServer")).asString());
+
+    m_tfPrefix = rf.check("tf-prefix", yarp::os::Value("")).asString();
+
+    bool ok_client = m_ddtransformclient.open(pTransformclient_cfg);
+    if (!ok_client)
+    {
+        yError()<<"Problem in opening the transformClient device";
+        yError()<<"Is the transformServer YARP device running?";
+        return false;
+    }
+    if (!m_ddtransformclient.view(m_iframetrans))
+    {
+        yError()<<"IFrameTransform I/F is not implemented";
+        return false;
+    }
+
+    return true;
 }
 
-/************************************************************/
-void JointStateSubscriber::attach(YARPRobotStatePublisherModule* module)
-{
-    m_module = module;
-}
-
-/************************************************************/
-void JointStateSubscriber::onRead(yarp::rosmsg::sensor_msgs::JointState& v)
-{
-    m_module->onRead(v);
-}
-
-/************************************************************/
 YARPRobotStatePublisherModule::YARPRobotStatePublisherModule(): m_iframetrans(nullptr),
                                                                 m_usingNetworkClock(false),
                                                                 m_baseFrameName(""),
@@ -58,85 +71,175 @@ YARPRobotStatePublisherModule::YARPRobotStatePublisherModule(): m_iframetrans(nu
 {
 }
 
-
-/************************************************************/
-bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
+bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
 {
-    string name="yarprobotstatepublisher";
-    string namePrefix = rf.check("name-prefix",Value("")).asString();
-    string robot = rf.check("robot",Value("")).asString();
-    if (!namePrefix.empty()) {
-        m_rosNode.reset(new yarp::os::Node("/"+namePrefix+"/yarprobotstatepublisher"));
-    }
-    else if (!robot.empty()) {
-        m_rosNode.reset(new yarp::os::Node("/"+robot+"/yarprobotstatepublisher"));
-        std::cerr << "[WARNING] The yarprobotstatepublisher option robot is deprecated," << std::endl <<
-                     "[WARNING] use name-prefix option instead";
-    }
-    else {
-        m_rosNode.reset(new yarp::os::Node("/yarprobotstatepublisher"));
+    std::lock_guard<std::mutex> lock(m_mutex);
+
+    std::string name;
+    auto basicInfo = std::make_shared<BasicInfo>();
+
+    {
+        std::lock_guard<std::mutex> lock(basicInfo->mutex);
+        basicInfo->name = rf.check("name", yarp::os::Value("yarprobotstatepublisher")).asString();
+        name = basicInfo->name;
+        basicInfo->robotPrefix = rf.check("robot", yarp::os::Value("icub")).asString();
     }
 
-    string modelFileName=rf.check("model",Value("model.urdf")).asString();
-    m_period=rf.check("period",Value(0.010)).asFloat64();
-    m_treeType=rf.check("tree-type", Value("SHALLOW")).asString();
+    std::string modelFileName=rf.check("model", yarp::os::Value("model.urdf")).asString();
+    // Open the model
+    std::string pathToModel=rf.findFileByName(modelFileName);
+
+    if (pathToModel == "")
+    {
+        yError() << "Failed to find" << modelFileName;
+        return false;
+    }
+
+    iDynTree::ModelLoader modelLoader;
+    bool ok = modelLoader.loadModelFromFile(pathToModel);
+
+    ConnectionType connection = BasicConnector::RequestedType(rf, ConnectionType::JOINT_STATE);
+
+    switch (connection)
+    {
+    case ConnectionType::STATE_EXT:
+    {
+        std::shared_ptr<StateExtConnector> stateExtConnector = std::make_shared<StateExtConnector>();
+
+        if (!stateExtConnector->configure(rf, basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via the StateExt port.";
+            return false;
+        }
+
+        m_connector = stateExtConnector;
+        break;
+    }
+
+    case ConnectionType::REMAPPER:
+    {
+        std::shared_ptr<RemapperConnector> remapperConnector = std::make_shared<RemapperConnector>();
+
+        if (!remapperConnector->configure(rf, modelLoader.model(), basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via RemoteControlBoardRemapper.";
+            return false;
+        }
+
+        m_connector = remapperConnector;
+        break;
+    }
+
+    case ConnectionType::JOINT_STATE:
+    {
+        std::shared_ptr<JointStateConnector> jointStateConnector = std::make_shared<JointStateConnector>();
+
+        if (!jointStateConnector->configure(rf, modelLoader.model(), basicInfo))
+        {
+            yError() << "Failed to configure the module to connect to the robot via JointState.";
+            return false;
+        }
+
+        jointStateConnector->setCallback([this](){this->onReadCallback();});
+        m_useCallback = true;
+
+        m_connector = jointStateConnector;
+        break;
+    }
+
+    default:
+        yError() << "The specified connector is not available for this module.";
+        return false;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(basicInfo->mutex);
+        std::stringstream jointListInfo;
+        jointListInfo << "Using the following joints:" << std::endl;
+        for (const std::string& joint : basicInfo->jointList)
+        {
+            jointListInfo << "    - " << joint <<std::endl;
+        }
+
+        yInfo() << jointListInfo.str();
+
+        if (!modelLoader.loadReducedModelFromFullModel(modelLoader.model(), basicInfo->jointList)) //The connectors take care of setting the joint list
+        {
+            yError() << "Failed to get reduced model.";
+            return false;
+        }
+
+        // Resize the joint pos buffer
+        m_jointPos.resize(basicInfo->jointList.size());
+
+        // Initilize the joint pos buffer to Zero
+        m_jointPos.zero();
+        m_jointOffsets = m_jointPos;
+
+        yarp::os::Value jointOffsetsValue = rf.find("joint-offsets-deg");
+        if (jointOffsetsValue.isList())
+        {
+            yarp::os::Bottle* jointOffsetsList = jointOffsetsValue.asList();
+            for (size_t i = 0 ; i < jointOffsetsList->size(); ++i)
+            {
+                yarp::os::Value offsetValue = jointOffsetsList->get(i);
+                if (!offsetValue.isList())
+                {
+                    yWarning() << "The element at position" << i <<"in joint-offsets is not a list.";
+                    continue;
+                }
+                yarp::os::Bottle* offsetBottle = offsetValue.asList();
+                if (offsetBottle->size() != 2)
+                {
+                    yWarning() << "The element at position" << i <<"in joint-offsets-deg is not a list of two elements.";
+                    continue;
+                }
+
+                if (!offsetBottle->get(0).isString())
+                {
+                    yWarning() << "The first element at position" << i <<"in joint-offsets-deg is not a string.";
+                    continue;
+                }
+
+                if (!offsetBottle->get(1).isFloat64() && !offsetBottle->get(1).isInt64() && !offsetBottle->get(1).isInt32())
+                {
+                    yWarning() << "The second element at position" << i << "("<< offsetBottle->get(0).asString() << ") in joint-offsets-deg is not a number.";
+                    continue;
+                }
+
+                auto jointIt = std::find(basicInfo->jointList.begin(), basicInfo->jointList.end(), offsetBottle->get(0).asString());
+
+                if (jointIt == basicInfo->jointList.end())
+                {
+                    yWarning() << "Specified an offset for the joint" << offsetBottle->get(0).asString() << "but it is not in the joint list.";
+                    continue;
+                }
+
+                yInfo() << "Adding an offset of" << offsetBottle->get(1).asFloat64() << "to" << offsetBottle->get(0).asString();
+
+                m_jointOffsets(std::distance(basicInfo->jointList.begin(), jointIt)) = iDynTree::deg2rad(offsetBottle->get(1).asFloat64());
+            }
+        }
+        else
+        {
+            yWarning() << "joint-offsets found, but it is not a list.";
+        }
+    }
+
+    m_period=rf.check("period", yarp::os::Value(0.010)).asFloat64();
+    m_treeType=rf.check("tree-type", yarp::os::Value("SHALLOW")).asString();
     if(m_treeType != "SHALLOW" && m_treeType != "DEEP")
     {
         yError("Wrong tree format. The only allowed values are \"SHALLOW\" or \"DEEP\"");
         return false;
     }
 
-    Property pTransformclient_cfg;
-    pTransformclient_cfg.put("device", "transformClient");
-    if (!namePrefix.empty()) {
-        pTransformclient_cfg.put("local", "/"+namePrefix+"/"+name+"/transformClient");
-    }
-    else pTransformclient_cfg.put("local", "/"+name+"/transformClient");
-
-    pTransformclient_cfg.put("remote", "/transformServer");
-
-    m_tfPrefix = rf.check("tf-prefix",Value("")).asString();
-
-    bool ok_client = m_ddtransformclient.open(pTransformclient_cfg);
-    if (!ok_client)
-    {
-        yError()<<"Problem in opening the transformClient device";
-        yError()<<"Is the transformServer YARP device running?";
-        close();
-        return false;
-    }
-    if (!m_ddtransformclient.view(m_iframetrans))
-    {
-        yError()<<"IFrameTransform I/F is not implemented";
-        close();
-        return false;
-    }
-
-    // If YARP is using a network clock, writing on a ROS topic is not working
-    // Workaround: explicitly instantiate a network clock to read the time from gazebo
-    if( yarp::os::NetworkBase::exists("/clock") )
-    {
-        m_usingNetworkClock = true;
-        m_netClock.open("/clock");
-    }
-
-    // Open the model
-    string pathToModel=rf.findFileByName(modelFileName);
-    iDynTree::ModelLoader modelLoader;
-    bool ok = modelLoader.loadModelFromFile(pathToModel);
     ok = ok && m_kinDynComp.loadRobotModel(modelLoader.model());
     if (!ok || !m_kinDynComp.isValid())
     {
         yError()<<"Impossible to load file " << pathToModel;
-        close();
         return false;
     }
-
-    // Resize the joint pos buffer
-    m_jointPos.resize(m_kinDynComp.model().getNrOfPosCoords());
-
-    // Initilize the joint pos buffer to Zero
-    m_jointPos.zero();
 
     // Get the base frame information
     if (rf.check("base-frame"))
@@ -156,7 +259,6 @@ bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
     if (m_baseFrameIndex == iDynTree::FRAME_INVALID_INDEX)
     {
         yError()<<"Impossible to find frame " << m_baseFrameName << " in the model";
-        close();
         return false;
     }
 
@@ -165,12 +267,42 @@ bool YARPRobotStatePublisherModule::configure(ResourceFinder &rf)
     // If the option is present, only the TFs of the links are streamed to transform server
     this->reducedModelOption=rf.check("reduced-model");
 
-    // Setup the topic and configureisValid the onRead callback
-    string jointStatesTopicName = rf.check("jointstates-topic",Value("/joint_states")).asString();
-    m_jointStateSubscriber.reset(new JointStateSubscriber());
-    m_jointStateSubscriber->attach(this);
-    m_jointStateSubscriber->topic(jointStatesTopicName);
-    m_jointStateSubscriber->useCallback();
+    std::stringstream frameNameInfo;
+    frameNameInfo << "Publishing the following frames:" << std::endl;
+    // Set the size of the tf frames to be published
+    size_t sizeOfTFFrames;
+    if (this->reducedModelOption)
+    {
+        sizeOfTFFrames = model.getNrOfLinks();
+    }
+    else
+    {
+        sizeOfTFFrames = model.getNrOfFrames();
+    }
+    for (size_t frameIdx = 0; frameIdx < sizeOfTFFrames; frameIdx++)
+    {
+        frameNameInfo << "    - " << model.getFrameName(frameIdx) <<std::endl;
+    }
+    yInfo() << frameNameInfo.str();
+
+    // If YARP is using a network clock, writing on a ROS topic is not working
+    // Workaround: explicitly instantiate a network clock to read the time from gazebo
+    if( yarp::os::NetworkBase::exists("/clock") )
+    {
+        m_usingNetworkClock = true;
+        m_netClock.open("/clock");
+    }
+
+    if (!configureTransformServer(name, rf))
+    {
+        return false;
+    }
+
+    if (!m_connector->connectToRobot())
+    {
+        yError() << "Failed to connect to the robot";
+        return false;
+    }
 
     return true;
 }
@@ -182,10 +314,9 @@ bool YARPRobotStatePublisherModule::close()
     std::lock_guard<std::mutex> guard(m_mutex);
 
     // Disconnect the topic subscriber
-    if (m_jointStateSubscriber)
+    if (m_connector)
     {
-        m_jointStateSubscriber->interrupt();
-        m_jointStateSubscriber->close();
+        m_connector->close();
     }
 
     if (m_ddtransformclient.isValid())
@@ -212,12 +343,25 @@ double YARPRobotStatePublisherModule::getPeriod()
 /************************************************************/
 bool YARPRobotStatePublisherModule::updateModule()
 {
-    // All the actual processing is performed in the onRead callback
+    if (!m_useCallback)
+    {
+        onReadCallback();
+    }
+
+    if (!m_publishedOnce)
+    {
+        yWarningThrottle(5.0) << "No data published yet";
+    }
+    else
+    {
+        yInfoThrottle(10.0) << "YARPRobotStatePublisherModule running happily";
+    }
+
     return true;
 }
 
 /************************************************************/
-void YARPRobotStatePublisherModule::onRead(yarp::rosmsg::sensor_msgs::JointState &v)
+void YARPRobotStatePublisherModule::onReadCallback()
 {
     std::lock_guard<std::mutex> guard(m_mutex);
 
@@ -227,23 +371,12 @@ void YARPRobotStatePublisherModule::onRead(yarp::rosmsg::sensor_msgs::JointState
         return;
     }
 
-    // TODO: this part can be drastically speed up.
-    //      Possible improvements:
-    //        * Add a map string --> indeces
-    // Fill the buffer of joints positions
+    if (!m_connector->getJointValues(m_jointPos))
+        return;
+
+    iDynTree::toEigen(m_jointPos) = iDynTree::toEigen(m_jointPos) + iDynTree::toEigen(m_jointOffsets);
+
     const iDynTree::Model& model = m_kinDynComp.model();
-    iDynTree::JointIndex jntIndex;
-    for (size_t i=0; i < v.name.size(); i++)
-    {
-        jntIndex = model.getJointIndex(v.name[i]);
-
-        if ( jntIndex == iDynTree::JOINT_INVALID_INDEX)
-            continue;
-        if (!(model.getJoint(jntIndex)->getNrOfDOFs()))
-            continue;
-
-        m_jointPos(model.getJoint(jntIndex)->getDOFsOffset()) = v.position[i];
-    }
 
     // Set the updated joint positions
     m_kinDynComp.setJointPos(m_jointPos);
@@ -350,5 +483,8 @@ void YARPRobotStatePublisherModule::onRead(yarp::rosmsg::sensor_msgs::JointState
         }
     }
 
+    m_publishedOnce = true;
+
     return;
 }
+
