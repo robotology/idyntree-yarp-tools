@@ -324,11 +324,16 @@ bool RemapperConnector::connectToRobot()
             boardsInfo << "- " << cb << std::endl;
         }
 
-        boardsInfo << "Connected to the following joints:" <<std::endl;
+        yInfo() << boardsInfo.str();
+
+        std::stringstream jointsInfo;
+        jointsInfo << "Connected to the following joints:" <<std::endl;
         for (const Joint& joint : m_availableJoints)
         {
-            boardsInfo << "- " << joint.name << std::endl;
+            jointsInfo << "- " << joint.name << std::endl;
         }
+
+        yInfo() << jointsInfo.str();
 
     }
 
