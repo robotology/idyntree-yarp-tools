@@ -8,6 +8,7 @@
 #include <yarp/os/LogStream.h>
 #include <iDynTree/Core/Utils.h>
 #include <yarp/dev/IAxisInfo.h>
+#include <yarp/dev/IPositionControl.h>
 #include "RobotConnectors.h"
 #include <algorithm>
 
@@ -142,6 +143,94 @@ bool RemapperConnector::getOrGuessControlBoardsFromFile(const yarp::os::Searchab
     return true;
 }
 
+bool RemapperConnector::addJointsFromBoard(const std::string &name,
+                                           const std::string &robot,
+                                           const std::string &controlBoard,
+                                           const std::unordered_map<std::string, size_t>& desiredJointsMap)
+{
+    yarp::os::Property rcb_conf{
+        {"device", yarp::os::Value("remote_controlboard")},
+        {"local", yarp::os::Value("/" + name + "/" + controlBoard + "/remoteControlBoard")},
+        {"remote", yarp::os::Value("/" + robot + "/" + controlBoard)},
+        {"part", yarp::os::Value(controlBoard)}};
+
+    yarp::dev::PolyDriver m_driver;
+
+    if (!m_driver.open(rcb_conf))
+    {
+        return false;
+    }
+
+    yarp::dev::IAxisInfo* axisInfo{nullptr};
+    yarp::dev::IPositionControl* pos{nullptr};
+
+    if (!m_driver.view(pos) || !pos)
+    {
+        return false;
+    }
+
+    if (!m_driver.view(axisInfo) || !axisInfo)
+    {
+        return false;
+    }
+
+    int nAxes = 0;
+
+    if (!pos->getAxes(&nAxes))
+    {
+        return false;
+    }
+
+    for (size_t i = 0; i < nAxes; ++i)
+    {
+        std::string name;
+        if (axisInfo->getAxisName(i,name))
+        {
+            auto it = desiredJointsMap.find(name);
+            if (it != desiredJointsMap.end())
+            {
+                m_availableJoints.push_back({name, it->second});
+            }
+        }
+    }
+
+    return true;
+}
+
+void RemapperConnector::getAvailableJoints(const std::string &name,
+                                           const std::string &robot,
+                                           const std::vector<std::string>& desiredJoints)
+{
+    m_availableControlBoards.clear();
+    m_availableJoints.clear();
+
+    std::unordered_map<std::string, size_t> desiredJointsMap;
+
+    for (size_t i = 0; i < m_basicInfo->jointList.size(); ++i)
+    {
+        desiredJointsMap[m_basicInfo->jointList[i]] = i;
+    }
+
+    for (const std::string& cb : m_controlBoards)
+    {
+        if (addJointsFromBoard(name, robot, cb, desiredJointsMap))
+        {
+            m_availableControlBoards.push_back(cb);
+        }
+    }
+
+    m_availableJointsInDeg.resize(m_availableJoints.size());
+    m_availableJointsInDeg.zero();
+}
+
+void RemapperConnector::fillDesiredJointsInDeg()
+{
+    for (size_t i = 0; i < m_availableJoints.size(); ++i)
+    {
+        m_jointsInDeg[m_availableJoints[i].desiredPosition] = m_availableJointsInDeg[i];
+    }
+}
+
 bool RemapperConnector::configure(const yarp::os::Searchable &inputConf, const iDynTree::Model &fullModel, std::shared_ptr<BasicInfo> basicInfo)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
@@ -176,23 +265,38 @@ bool RemapperConnector::connectToRobot()
         }
 
         std::lock_guard<std::mutex> lock(m_basicInfo->mutex);
+
+        getAvailableJoints(m_basicInfo->name, m_basicInfo->robotPrefix, m_basicInfo->jointList);
+
         //First make sure to reset the device in case it was already opened.
         m_robotDevice.close();
         m_encodersInterface = nullptr;
+
+        if (m_availableControlBoards.size() == 0)
+        {
+            yError() << "No available boards.";
+            return false;
+        }
+
+        if (m_availableJoints.size() == 0)
+        {
+            yError() << "No available joints.";
+            return false;
+        }
 
         yarp::os::Property remapperOptions;
         remapperOptions.put("device", "remotecontrolboardremapper");
         yarp::os::Bottle axesNames;
         yarp::os::Bottle & axesList = axesNames.addList();
-        for (auto& joint : m_basicInfo->jointList)
+        for (auto& joint : m_availableJoints)
         {
-            axesList.addString(joint);
+            axesList.addString(joint.name);
         }
         remapperOptions.put("axesNames",axesNames.get(0));
 
         yarp::os::Bottle remoteControlBoards;
         yarp::os::Bottle & remoteControlBoardsList = remoteControlBoards.addList();
-        for (auto& cb : m_controlBoards)
+        for (auto& cb : m_availableControlBoards)
         {
             remoteControlBoardsList.addString("/" + m_basicInfo->robotPrefix + "/" + cb);
         }
@@ -204,12 +308,28 @@ bool RemapperConnector::connectToRobot()
             yError() << "Failed to open remote control board remapper.";
             return false;
         }
+
         if (!m_robotDevice.view(m_encodersInterface) || !m_encodersInterface)
         {
             yError() << "Failed to view encoder interface.";
 
             return false;
         }
+
+        std::stringstream boardsInfo;
+
+        boardsInfo << "Connected to the following boards:" <<std::endl;
+        for (const std::string& cb : m_availableControlBoards)
+        {
+            boardsInfo << "- " << cb << std::endl;
+        }
+
+        boardsInfo << "Connected to the following joints:" <<std::endl;
+        for (const Joint& joint : m_availableJoints)
+        {
+            boardsInfo << "- " << joint.name << std::endl;
+        }
+
     }
 
     m_connected = true;
@@ -222,8 +342,9 @@ bool RemapperConnector::getJointValues(iDynTree::VectorDynSize &jointValuesInRad
     {
         std::lock_guard<std::mutex> lock(m_mutex);
 
-        if (m_encodersInterface->getEncoders(m_jointsInDeg.data()))
+        if (m_encodersInterface->getEncoders(m_availableJointsInDeg.data()))
         {
+            fillDesiredJointsInDeg();
             fillJointValuesInRad();
             jointValuesInRad = m_jointsInRad;
         }

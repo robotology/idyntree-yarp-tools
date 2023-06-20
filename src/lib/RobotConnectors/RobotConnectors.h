@@ -23,6 +23,7 @@
 #include <memory>
 #include <functional>
 #include <unordered_map>
+#include <map>
 
 
 
@@ -76,12 +77,28 @@ public:
 
 class RemapperConnector : public BasicConnector
 {
+    struct Joint {
+        std::string name;
+        size_t desiredPosition;
+    };
 
     std::vector<std::string> m_controlBoards;
+    std::vector<std::string> m_availableControlBoards;
+    std::vector<Joint> m_availableJoints;
+    iDynTree::VectorDynSize m_availableJointsInDeg;
     yarp::dev::PolyDriver m_robotDevice;
     yarp::dev::IEncodersTimed *m_encodersInterface{nullptr};
 
     bool getOrGuessControlBoardsFromFile(const yarp::os::Searchable &inputConf);
+
+    bool addJointsFromBoard(const std::string& name,
+                            const std::string& robot,
+                            const std::string& controlBoard,
+                            const std::unordered_map<std::string, size_t> &desiredJointsMap);
+
+    void getAvailableJoints(const std::string& name, const std::string& robot, const std::vector<std::string> &desiredJoints);
+
+    void fillDesiredJointsInDeg();
 
 public:
 
