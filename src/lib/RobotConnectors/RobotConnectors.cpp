@@ -8,7 +8,6 @@
 #include <yarp/os/LogStream.h>
 #include <iDynTree/Core/Utils.h>
 #include <yarp/dev/IAxisInfo.h>
-#include <yarp/dev/IPositionControl.h>
 #include "RobotConnectors.h"
 #include <algorithm>
 
@@ -162,7 +161,7 @@ bool RemapperConnector::addJointsFromBoard(const std::string &name,
     }
 
     yarp::dev::IAxisInfo* axisInfo{nullptr};
-    yarp::dev::IPositionControl* pos{nullptr};
+    yarp::dev::IEncodersTimed* pos{nullptr};
 
     if (!m_driver.view(pos) || !pos)
     {
