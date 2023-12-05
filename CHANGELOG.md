@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix use of transformServer device in yarprobotstatepublisher https://github.com/robotology/idyntree-yarp-tools/pull/49
+
+## [0.0.8] - 2023-11-17
+
+### Changed
+
+- The remapper connector will not fail if some board of joint is not available https://github.com/robotology/idyntree-yarp-tools/pull/47
+
 ## [0.0.7] - 2023-02-24
 
 ### Changed
