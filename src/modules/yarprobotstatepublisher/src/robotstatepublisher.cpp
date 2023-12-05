@@ -35,15 +35,20 @@ bool YARPRobotStatePublisherModule::configureTransformServer(const std::string &
 {
 
     std::string namePrefix = rf.check("name-prefix", yarp::os::Value("")).asString();
+    if (namePrefix.front() != '/')
+    {
+        namePrefix = '/' + namePrefix;
+    }
 
     yarp::os::Property pTransformclient_cfg;
-    pTransformclient_cfg.put("device", "transformClient");
-    if (!namePrefix.empty()) {
-        pTransformclient_cfg.put("local", "/"+namePrefix+"/"+name+"/transformClient");
+    pTransformclient_cfg.put("device", rf.check("tf-device", yarp::os::Value("frameTransformClient")).asString());
+    pTransformclient_cfg.put("filexml_option",  rf.check("tf-file", yarp::os::Value("ftc_yarp_only.xml")).asString());
+    pTransformclient_cfg.put("ft_client_prefix", namePrefix + "/" + name + "/tf");
+    if (rf.check("tf-remote"))
+    {
+        pTransformclient_cfg.put("ft_server_prefix", rf.find("tf-remote").asString());
     }
-    else pTransformclient_cfg.put("local", "/"+name+"/transformClient");
-
-    pTransformclient_cfg.put("remote",  rf.check("tf-remote", yarp::os::Value("/transformServer")).asString());
+    pTransformclient_cfg.put("local_rpc", namePrefix + "/" + name + "/tf/local_rpc");
 
     m_tfPrefix = rf.check("tf-prefix", yarp::os::Value("")).asString();
 
