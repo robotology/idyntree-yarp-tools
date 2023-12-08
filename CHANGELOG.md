@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.0.9] - 2023-12-08
+
 ### Fixed
 
 - Fix use of transformServer device in yarprobotstatepublisher https://github.com/robotology/idyntree-yarp-tools/pull/49
