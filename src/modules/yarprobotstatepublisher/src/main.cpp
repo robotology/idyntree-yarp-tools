@@ -41,10 +41,6 @@ int main(int argc, char *argv[])
         cout<<"\t--reduced-model                        : use the option to stream only the link TFs\n"
               "                                           \t By default TFs of all the frames in the model are streamed"<<endl;
         cout<<"\t--base-frame             <frame-name>  : specify the base frame of the published tf tree"<<endl;
-        cout<<"\t--jointstates-topic      <topic-name>  : source ROS topic that streams the joint state (default /joint_states)\n"
-              "                                           \t The position values of the model joints are initilized to Zero\n"
-              "                                           \t In runtime, the joint values from the ROS topic are used to set\n"
-              "                                           \t the position values of some of the model joints."<<endl;
         cout<<"\t--tree-type              <tree-type>   : the type of tree tou want to represent the transformations in.\n"
               "                                           \t the values can be DEEP or SHALLOW. If omitted, the default\n"
               "                                           \t value SHALLOW will be used"<<endl;

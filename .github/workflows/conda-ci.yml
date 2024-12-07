@@ -32,8 +32,7 @@ jobs:
       run: |
         # Workaround for https://github.com/conda-incubator/setup-miniconda/issues/186
         conda config --remove channels defaults
-        # We pin yarp to 3.9.* until https://github.com/robotology/idyntree-yarp-tools/issues/50 is fixed
-        conda install -c conda-forge -c robotology cmake compilers make ninja pkg-config qt-main yarp==3.9.* icub-main idyntree
+        conda install -c conda-forge -c robotology cmake compilers make ninja pkg-config qt-main yarp icub-main idyntree
 
     # Additional dependencies useful only on Linux
     - name: Dependencies [Conda/Linux]
