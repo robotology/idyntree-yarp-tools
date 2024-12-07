@@ -103,7 +103,7 @@ bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
     iDynTree::ModelLoader modelLoader;
     bool ok = modelLoader.loadModelFromFile(pathToModel);
 
-    ConnectionType connection = BasicConnector::RequestedType(rf, ConnectionType::JOINT_STATE);
+    ConnectionType connection = BasicConnector::RequestedType(rf, ConnectionType::STATE_EXT);
 
     switch (connection)
     {
@@ -132,23 +132,6 @@ bool YARPRobotStatePublisherModule::configure(yarp::os::ResourceFinder &rf)
         }
 
         m_connector = remapperConnector;
-        break;
-    }
-
-    case ConnectionType::JOINT_STATE:
-    {
-        std::shared_ptr<JointStateConnector> jointStateConnector = std::make_shared<JointStateConnector>();
-
-        if (!jointStateConnector->configure(rf, modelLoader.model(), basicInfo))
-        {
-            yError() << "Failed to configure the module to connect to the robot via JointState.";
-            return false;
-        }
-
-        jointStateConnector->setCallback([this](){this->onReadCallback();});
-        m_useCallback = true;
-
-        m_connector = jointStateConnector;
         break;
     }
 
@@ -318,7 +301,7 @@ bool YARPRobotStatePublisherModule::close()
 {
     std::lock_guard<std::mutex> guard(m_mutex);
 
-    // Disconnect the topic subscriber
+    // Close the connector
     if (m_connector)
     {
         m_connector->close();

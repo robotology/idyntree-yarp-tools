@@ -5,7 +5,6 @@ set (SRC RobotConnectors.cpp)
 
 add_library(${LIBRARY_NAME} ${HDR} ${SRC})
 target_link_libraries(${LIBRARY_NAME} PRIVATE YARP::YARP_os
-                                              YARP::YARP_rosmsg
                                               YARP::YARP_dev
                                               ReadOnlyRemoteControlBoardLib)
 

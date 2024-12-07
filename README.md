@@ -12,7 +12,7 @@ Module to visualize a robot using the iDynTree Visualizer library, loading the r
 ### `yarprobotstatepublisher`
 
 Drop-in replacement of the [ROS `robot_state_publisher`](http://wiki.ros.org/robot_state_publisher) that uses iDynTree for loading the URDF
-and computing the forward kinematics, and YARP to subscribe to the joint topic and publish the computed transforms.
+and computing the forward kinematics, and YARP to read the joint positions and publish the computed transforms.
 
 ### `urdf2dh`
 

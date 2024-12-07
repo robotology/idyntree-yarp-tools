@@ -61,7 +61,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 
 find_package(YCM REQUIRED)
-find_package(YARP 3.3 REQUIRED COMPONENTS os dev math rosmsg idl_tools)
+find_package(YARP 3.3 REQUIRED COMPONENTS os dev math idl_tools)
 find_package(iDynTree 5.0.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 
