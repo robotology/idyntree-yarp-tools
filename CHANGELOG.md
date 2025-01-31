@@ -1,9 +1,7 @@
 # Changelog
-All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+This file documents notable changes to this project done before December 2023. For changes after that date, plase refers to the release notes of each release at https://github.dev/robotology/idyntree-yarp-tools/releases .
 
-## [Unreleased]
 
 ## [0.0.9] - 2023-12-08
 
