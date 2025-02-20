@@ -423,8 +423,16 @@ void YARPRobotStatePublisherModule::onReadCallback()
 
             if(currJoint->getNrOfDOFs() == 0) //Static transform
             {
+                bool canTransform;
+#if YARP_VERSION_MAJOR == 3 && YARP_VERSION_MINOR < 11
+                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex), m_tfPrefix + model.getFrameName(parentLinkIndex))
+#else
+                bool canTranformOk = false;
+                bool canTransformRetValue = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex), m_tfPrefix + model.getFrameName(parentLinkIndex), canTranformOk);
+                canTransform = canTranformOk && canTransformRetValue;
+#endif
                 //To avoid setting a static transform more than once
-                if(m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex),m_tfPrefix + model.getFrameName(parentLinkIndex)))
+                if(canTransform)
                 {
                     continue;
                 }
@@ -457,7 +465,15 @@ void YARPRobotStatePublisherModule::onReadCallback()
                 iDynTree::toYarp(link_H_frame.asHomogeneousTransform(), m_buf4x4);
 
                 //To avoid setting a static transform more than once
-                if(m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex)))
+                bool canTransform = false;
+#if YARP_VERSION_MAJOR == 3 && YARP_VERSION_MINOR < 11
+                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex))
+#else
+                bool canTranformOk = false;
+                bool canTransformRetValue = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex), canTranformOk);
+                canTransform = canTranformOk && canTransformRetValue;
+#endif
+                if(canTransform)
                 {
                     continue;
                 }
