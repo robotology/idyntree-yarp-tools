@@ -426,7 +426,7 @@ void YARPRobotStatePublisherModule::onReadCallback()
             {
                 bool canTransform;
 #if YARP_VERSION_MAJOR == 3 && YARP_VERSION_MINOR < 11
-                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex), m_tfPrefix + model.getFrameName(parentLinkIndex))
+                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex), m_tfPrefix + model.getFrameName(parentLinkIndex));
 #else
                 bool canTranformOk = false;
                 bool canTransformRetValue = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(linkIndex), m_tfPrefix + model.getFrameName(parentLinkIndex), canTranformOk);
@@ -468,7 +468,7 @@ void YARPRobotStatePublisherModule::onReadCallback()
                 //To avoid setting a static transform more than once
                 bool canTransform = false;
 #if YARP_VERSION_MAJOR == 3 && YARP_VERSION_MINOR < 11
-                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex))
+                canTransform = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex));
 #else
                 bool canTranformOk = false;
                 bool canTransformRetValue = m_iframetrans->canTransform(m_tfPrefix + model.getFrameName(frameIndex),m_tfPrefix + model.getFrameName(linkIndex), canTranformOk);
