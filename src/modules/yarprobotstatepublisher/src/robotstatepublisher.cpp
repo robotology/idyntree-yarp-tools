@@ -19,6 +19,7 @@
 
 #include <Eigen/Dense>
 #include <yarp/math/Math.h>
+#include <yarp/conf/version.h>
 
 #include <iDynTree/ModelIO/ModelLoader.h>
 #include <iDynTree/KinDynComputations.h>
